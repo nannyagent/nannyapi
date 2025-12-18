@@ -199,6 +199,88 @@ function generateBackupCode(): string {
   return result;
 }
 
+// Check if user is MFA locked (too many failed attempts)
+async function checkMFALockout(serviceClient: any, userId: string): Promise<{ locked: boolean; lockedUntil?: string }> {
+  try {
+    const { data: lockout } = await serviceClient
+      .from("mfa_lockout")
+      .select("locked_until")
+      .eq("user_id", userId)
+      .gt("locked_until", new Date().toISOString())
+      .maybeSingle();
+
+    if (lockout) {
+      return { locked: true, lockedUntil: lockout.locked_until };
+    }
+    return { locked: false };
+  } catch (e) {
+    console.error("Error checking MFA lockout:", e);
+    return { locked: false };
+  }
+}
+
+// Record failed MFA attempt and check if should lock user
+async function recordMFAFailedAttempt(
+  serviceClient: any,
+  userId: string,
+  action: string,
+  ip: string,
+  userAgent: string
+): Promise<{ shouldLock: boolean; failCount: number }> {
+  try {
+    // Record the failed attempt
+    await serviceClient
+      .from("user_mfa_failed_attempts")
+      .insert({
+        user_id: userId,
+        action,
+        ip_address: ip,
+        user_agent: userAgent
+      });
+
+    // Get MFA config
+    const mfaFailLimitStr = await getConfigValue(serviceClient, "security.mfa_failed_attempts_limit", "5");
+    const mfaCheckWindowStr = await getConfigValue(serviceClient, "security.mfa_check_window_hours", "24");
+    
+    const mfaFailLimit = parseInt(mfaFailLimitStr, 10);
+    const mfaCheckWindowHours = parseInt(mfaCheckWindowStr, 10);
+
+    // Count failed attempts in the window
+    const { data: failedAttempts } = await serviceClient
+      .from("user_mfa_failed_attempts")
+      .select("id", { count: "exact" })
+      .eq("user_id", userId)
+      .eq("action", action)
+      .gt("failed_at", new Date(Date.now() - mfaCheckWindowHours * 60 * 60 * 1000).toISOString());
+
+    const failCount = failedAttempts?.length || 0;
+
+    if (failCount >= mfaFailLimit) {
+      // Lock MFA
+      const mfaLockoutDurationStr = await getConfigValue(serviceClient, "security.mfa_lockout_duration_hours", "1");
+      const mfaLockoutDurationHours = parseInt(mfaLockoutDurationStr, 10);
+      const lockedUntil = new Date(Date.now() + mfaLockoutDurationHours * 60 * 60 * 1000).toISOString();
+
+      await serviceClient
+        .from("mfa_lockout")
+        .insert({
+          user_id: userId,
+          locked_until: lockedUntil,
+          reason: `Too many failed MFA ${action} attempts (${failCount}+ attempts)`,
+          ip_address: ip,
+          failed_attempts_count: failCount
+        });
+
+      return { shouldLock: true, failCount };
+    }
+
+    return { shouldLock: false, failCount };
+  } catch (e) {
+    console.error("Error recording MFA failed attempt:", e);
+    return { shouldLock: false, failCount: 0 };
+  }
+}
+
 // Hash code for secure storage
 async function hashCode(code: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -271,6 +353,13 @@ serve(async (req) => {
     if (action === "verify-totp") {
       const { code, secret } = body;
       
+      // CHECK MFA LOCKOUT FIRST
+      const mfaLockoutCheck = await checkMFALockout(serviceClient, user.id);
+      if (mfaLockoutCheck.locked) {
+        logRequest(action, user.id, 'mfa_locked', { lockedUntil: mfaLockoutCheck.lockedUntil, ip });
+        return sendError(`MFA is locked due to too many failed attempts. Try again after ${mfaLockoutCheck.lockedUntil}.`, 429);
+      }
+      
       // VALIDATE TOTP CODE
       const codeValidation = validateTotpCode(code);
       if (!codeValidation.valid) {
@@ -295,13 +384,42 @@ serve(async (req) => {
       }
 
       const valid = await verifyTotp(code, secretToUse, 1);
-      logRequest(action, user.id, valid ? 'success' : 'failed_validation', { ip });
+      
+      // If verification failed, record attempt and check if should lock
+      if (!valid) {
+        const userAgent = req.headers.get("user-agent") || "unknown";
+        const { shouldLock, failCount } = await recordMFAFailedAttempt(
+          serviceClient,
+          user.id,
+          action,
+          ip,
+          userAgent
+        );
+
+        if (shouldLock) {
+          logRequest(action, user.id, 'mfa_lockout_triggered', { failCount, ip });
+          return sendError(`Too many failed MFA attempts (${failCount}). MFA locked for 1 hour.`, 429);
+        }
+
+        logRequest(action, user.id, 'failed_validation', { attemptNumber: failCount, ip });
+      } else {
+        logRequest(action, user.id, 'success', { ip });
+      }
+
       return sendSuccess({ valid }, 200, action, user.id);
     }
 
     // verify-backup-code - backup codes are now hashed
     if (action === "verify-backup-code") {
       const { code } = body;
+      
+      // CHECK MFA LOCKOUT FIRST
+      const mfaLockoutCheck = await checkMFALockout(serviceClient, user.id);
+      if (mfaLockoutCheck.locked) {
+        logRequest(action, user.id, 'mfa_locked', { lockedUntil: mfaLockoutCheck.lockedUntil, ip });
+        return sendError(`MFA is locked due to too many failed attempts. Try again after ${mfaLockoutCheck.lockedUntil}.`, 429);
+      }
+
       if (!code) return sendError("Code required", 400);
 
       const { data: mfaSettings } = await serviceClient
@@ -325,16 +443,33 @@ serve(async (req) => {
         .eq("code_hash", codeHash)
         .maybeSingle();
 
-      if (used) return sendError("Code already used", 400);
+      if (used) {
+        // Record failed attempt (reuse attempt)
+        const userAgent = req.headers.get("user-agent") || "unknown";
+        await recordMFAFailedAttempt(serviceClient, user.id, action, ip, userAgent);
+        return sendError("Code already used", 400);
+      }
 
       // Verify code exists in the hashed backup codes
       if (!mfaSettings.backup_codes_hash.includes(codeHash)) {
+        // Record failed attempt
+        const userAgent = req.headers.get("user-agent") || "unknown";
+        const { shouldLock, failCount } = await recordMFAFailedAttempt(
+          serviceClient,
+          user.id,
+          action,
+          ip,
+          userAgent
+        );
+
+        if (shouldLock) {
+          logRequest(action, user.id, 'mfa_lockout_triggered', { failCount, ip });
+          return sendError(`Too many failed MFA attempts (${failCount}). MFA locked for 1 hour.`, 429);
+        }
+
+        logRequest(action, user.id, 'failed_validation', { attemptNumber: failCount, ip });
         return sendError("Invalid backup code", 400);
       }
-
-      let ip = "0.0.0.0";
-      const xff = req.headers.get("x-forwarded-for");
-      if (xff) ip = xff.split(",")[0].trim();
 
       // Record code as used
       await serviceClient

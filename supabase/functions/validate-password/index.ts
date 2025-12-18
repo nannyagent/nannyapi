@@ -188,6 +188,31 @@ serve(async (req) => {
     }
 
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // SECURITY: Check if user account is locked from too many failed attempts (EARLY CHECK)
+    const { data: lockout } = await serviceClient
+      .from("account_lockout")
+      .select("locked_until")
+      .eq("user_id", user.id)
+      .gt("locked_until", new Date().toISOString())
+      .maybeSingle();
+
+    if (lockout) {
+      logPasswordAttempt('validate', user.id, 'account_locked', { 
+        lockedUntil: lockout.locked_until,
+        ip: "0.0.0.0"
+      });
+      return new Response(JSON.stringify({
+        error: "Account is locked due to too many failed attempts. Try again later.",
+        lockedUntil: lockout.locked_until
+      }), {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json"
+        }
+      });
+    }
     
     let body;
     try {
@@ -268,27 +293,6 @@ serve(async (req) => {
       "10"
     );
     const failedLoginAttemptsLimit = parseInt(failedLoginAttemptsLimitStr, 10);
-
-    // SECURITY: Check if user account is locked from too many failed login attempts
-    const { data: lockout } = await serviceClient
-      .from("account_lockout")
-      .select("locked_until")
-      .eq("user_id", user.id)
-      .gt("locked_until", new Date().toISOString())
-      .maybeSingle();
-
-    if (lockout) {
-      return new Response(JSON.stringify({
-        error: "Account is locked due to too many failed login attempts. Try again later.",
-        lockedUntil: lockout.locked_until
-      }), {
-        status: 429,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json"
-        }
-      });
-    }
 
     // SECURITY: Check for too many failed login attempts - lock account after threshold
     // Account-based only, no IP-based checking (NAT-aware design)

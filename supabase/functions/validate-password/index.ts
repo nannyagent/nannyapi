@@ -8,6 +8,35 @@ const corsHeaders = {
 
 const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-={}[\];':"\\|,.<>/?]/;
 
+// Audit logging helper
+function logPasswordAttempt(action: string, userId: string, status: string, details?: any) {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    service: 'validate-password',
+    action,
+    userId: userId.substring(0, 8) + '...', // Log partial for privacy
+    status,
+    ...details
+  }));
+}
+
+// Validation helper - Password string sanity check
+function validatePasswordInput(password: string): { valid: boolean; message?: string } {
+  if (!password) {
+    return { valid: false, message: 'Password is required' };
+  }
+  if (typeof password !== 'string') {
+    return { valid: false, message: 'Password must be a string' };
+  }
+  if (password.length > 256) {
+    return { valid: false, message: 'Password is too long (max 256 characters)' };
+  }
+  if (password.length === 0) {
+    return { valid: false, message: 'Password cannot be empty' };
+  }
+  return { valid: true };
+}
+
 // Cache for config values to reduce DB queries (5 minute TTL)
 const configCache = new Map<string, { value: string; expiry: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -189,9 +218,15 @@ serve(async (req) => {
 
     const { password } = body;
 
-    if (!password) {
+    // VALIDATE PASSWORD INPUT BEFORE PROCESSING
+    const passwordValidation = validatePasswordInput(password);
+    if (!passwordValidation.valid) {
+      logPasswordAttempt('validate', user.id, 'validation_error', { 
+        message: passwordValidation.message,
+        ip: req.headers.get("x-forwarded-for") || "0.0.0.0"
+      });
       return new Response(JSON.stringify({
-        error: "Password is required"
+        error: passwordValidation.message
       }), {
         status: 400,
         headers: {
@@ -332,7 +367,11 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .gt("changed_at", new Date(Date.now() - passwordHistoryWindow * 60 * 60 * 1000).toISOString());
 
-    if (recentHashes?.some(h => h.password_hash === passwordHash)) {
+    if (recentHashes?.some((h: any) => h.password_hash === passwordHash)) {
+      logPasswordAttempt('validate', user.id, 'password_reuse_detected', { 
+        ip, 
+        windowHours: passwordHistoryWindow 
+      });
       return new Response(JSON.stringify({
         error: `Password was recently used. Choose a different password. (Check history window: ${passwordHistoryWindow} hours)`
       }), {
@@ -368,6 +407,12 @@ serve(async (req) => {
           changed_by_agent: false
         });
     }
+
+    // LOG AUDIT TRAIL
+    logPasswordAttempt('validate', user.id, validationResult.isValid ? 'success' : 'validation_failed', { 
+      ip,
+      requirementsChecked: Object.keys(validationResult.requirements).length
+    });
 
     return new Response(JSON.stringify(validationResult), {
       status: validationResult.isValid ? 200 : 400,

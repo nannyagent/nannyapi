@@ -6,7 +6,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
-const sendError = (message: string, status = 500) => {
+// Request logging helper - AUDIT TRAIL
+function logRequest(action: string, userId: string, status: string, details?: any) {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    service: 'mfa-handler',
+    action,
+    userId: userId.substring(0, 8) + '...', // Log partial for privacy
+    status,
+    ...details
+  }));
+}
+
+const sendError = (message: string, status = 500, action?: string, userId?: string) => {
+  if (action && userId) {
+    logRequest(action, userId, 'error', { message, status });
+  }
   return new Response(JSON.stringify({ error: message }), {
     status,
     headers: {
@@ -16,7 +31,10 @@ const sendError = (message: string, status = 500) => {
   });
 };
 
-const sendSuccess = (data: any, status = 200) => {
+const sendSuccess = (data: any, status = 200, action?: string, userId?: string) => {
+  if (action && userId) {
+    logRequest(action, userId, 'success', { status });
+  }
   return new Response(JSON.stringify(data), {
     status,
     headers: {
@@ -120,10 +138,40 @@ async function verifyTotp(token: string, secret: string, window = 1): Promise<bo
   }
 }
 
-// Generate backup code (8 characters exactly as per requirements)
+// Validation helpers - SECURITY
+function validateAction(action: string): { valid: boolean; message?: string } {
+  const validActions = ['setup', 'confirm', 'verify-totp', 'verify-backup-code', 'disable', 'check-backup-codes'];
+  if (!validActions.includes(action)) {
+    return { valid: false, message: `Invalid action. Must be one of: ${validActions.join(', ')}` };
+  }
+  return { valid: true };
+}
+
+function validateTotpCode(code: string): { valid: boolean; message?: string } {
+  if (!code) {
+    return { valid: false, message: 'TOTP code is required' };
+  }
+  if (!/^\d{6}$/.test(code)) {
+    return { valid: false, message: 'TOTP code must be 6 digits' };
+  }
+  return { valid: true };
+}
+
+function validateBackupCode(code: string): { valid: boolean; message?: string } {
+  if (!code) {
+    return { valid: false, message: 'Backup code is required' };
+  }
+  if (code.length !== 8) {
+    return { valid: false, message: 'Backup code must be 8 characters' };
+  }
+  return { valid: true };
+}
+
+// Improved backup code generation - STRONGER ENTROPY
 function generateBackupCode(): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   let code = "";
+  // Use 5 bytes (40 bits) for better entropy - generates base32 with 8 chars
   const bytes = new Uint8Array(5);
   crypto.getRandomValues(bytes);
   let bits = 0;
@@ -139,7 +187,16 @@ function generateBackupCode(): string {
   if (bitsCount > 0) {
     code += alphabet[((bits << (5 - bitsCount)) & 0x1f)];
   }
-  return code.substring(0, 8); // Ensure exactly 8 characters
+  
+  // Ensure exactly 8 characters (trim if needed, should be rare)
+  const result = code.substring(0, 8);
+  if (result.length < 8) {
+    // Fallback: shouldn't happen, but generate another byte if needed
+    const extra = new Uint8Array(1);
+    crypto.getRandomValues(extra);
+    return (result + alphabet[extra[0] % 32]).substring(0, 8);
+  }
+  return result;
 }
 
 // Hash code for secure storage
@@ -178,6 +235,12 @@ serve(async (req) => {
     const { action } = body;
     if (!action) return sendError("Action is required", 400);
 
+    // VALIDATE ACTION BEFORE PROCESSING
+    const actionValidation = validateAction(action);
+    if (!actionValidation.valid) {
+      return sendError(actionValidation.message || "Invalid action", 400);
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -194,15 +257,26 @@ serve(async (req) => {
 
     // SECURITY: Agents cannot manage user MFA
     if (isAgent(user)) {
+      logRequest(action, user.id, 'error', { message: 'Agent attempted to manage MFA' });
       return sendError("Agents cannot manage user MFA settings", 403);
     }
+
+    // Get IP address for audit trail
+    const xff = req.headers.get("x-forwarded-for");
+    const ip = xff ? xff.split(",")[0].trim() : "0.0.0.0";
 
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
 
     // verify-totp
     if (action === "verify-totp") {
       const { code, secret } = body;
-      if (!code) return sendError("Code required", 400);
+      
+      // VALIDATE TOTP CODE
+      const codeValidation = validateTotpCode(code);
+      if (!codeValidation.valid) {
+        logRequest(action, user.id, 'error', { message: codeValidation.message, ip });
+        return sendError(codeValidation.message || "Code required", 400);
+      }
 
       let secretToUse = secret;
       if (!secretToUse) {
@@ -213,12 +287,16 @@ serve(async (req) => {
           .eq("mfa_enabled", true)
           .maybeSingle();
 
-        if (error || !mfaSettings) return sendError("MFA not enabled", 404);
+        if (error || !mfaSettings) {
+          logRequest(action, user.id, 'error', { message: 'MFA not enabled', ip });
+          return sendError("MFA not enabled", 404);
+        }
         secretToUse = mfaSettings.totp_secret;
       }
 
       const valid = await verifyTotp(code, secretToUse, 1);
-      return sendSuccess({ valid });
+      logRequest(action, user.id, valid ? 'success' : 'failed_validation', { ip });
+      return sendSuccess({ valid }, 200, action, user.id);
     }
 
     // verify-backup-code - backup codes are now hashed

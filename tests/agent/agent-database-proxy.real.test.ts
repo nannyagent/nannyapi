@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll } from "vitest";
 
-const API_URL = "http://localhost:54321";
+const API_URL = process.env.SUPABASE_URL!;
 const EDGE_FUNCTION_URL = `${API_URL}/functions/v1/agent-database-proxy`;
 const AUTH_URL = `${API_URL}/auth/v1`;
 const DB_URL = `${API_URL}/rest/v1`;
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvY2FsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQzNjAwMDAsImV4cCI6MTc2NTk2MDAwMH0.v3tU3EuNIlCJ0O3dX4X4X4X4X4X4X4X4X4X4X4X4X4X";
-const SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvY2FsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDM2MDAwMCwiZXhwIjoxNzY1OTYwMDAwfQ.qfAZ4pN8BhJ5XkdF9zE7yH2cL1mN3oP9qR4sT5uV6wX";
+const ANON_KEY = process.env.SUPABASE_ANON_KEY!;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 let testUserToken: string;
 let testUserId: string;

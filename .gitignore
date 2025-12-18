@@ -3,6 +3,7 @@
 
 # Node.js / JavaScript
 node_modules
+coverage
 
 # Environment files
 .env*

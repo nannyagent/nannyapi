@@ -1,0 +1,22 @@
+name: 'database-tests'
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - name: Start database
+        run: supabase db start
+      
+      - name: Verify schema was applied
+        run: supabase db reset
+      
+      - name: Run database tests (will be added later)
+        run: supabase test db

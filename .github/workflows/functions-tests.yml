@@ -1,0 +1,46 @@
+name: 'functions-tests'
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Start Supabase
+        run: supabase status
+      
+      - name: Check database migrations
+        run: supabase migration list
+      
+      - name: Verify schema was applied
+        run: supabase db reset
+      
+      - name: Run database tests
+        run: supabase test db
+      
+      - name: Run tests
+        run: npm run test -- --coverage
+        
+      - name: Upload test coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-coverage
+          path: coverage/
+          retention-days: 7

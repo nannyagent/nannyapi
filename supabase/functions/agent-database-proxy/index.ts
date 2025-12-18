@@ -76,14 +76,14 @@ async function checkRateLimit(
       .from("investigations")
       .select("id", { count: "exact" })
       .eq("agent_id", agentId)
-      .eq("initiated_by", userId)
+      .eq("initiated_by", userId.toString())
       .gt("created_at", tenMinutesAgo);
   } else {
     query = supabase
       .from("patch_executions")
       .select("id", { count: "exact" })
       .eq("agent_id", agentId)
-      .eq("triggered_by", userId)
+      .eq("triggered_by", userId.toString())
       .gt("started_at", tenMinutesAgo);
   }
 
@@ -345,7 +345,7 @@ Deno.serve(async (req) => {
     // POST /patch-executions - Create a new patch execution
     if (req.method === "POST" && url.pathname.endsWith("/patch-executions")) {
       const body = await req.json();
-      const userId = body.user_id || body.triggered_by;
+      const userId = body.user_id || body.triggered_by || agentId;
       const scriptId = body.script_id;
       const executionType = body.execution_type || "manual";
       const command = body.command;
@@ -355,6 +355,23 @@ Deno.serve(async (req) => {
           JSON.stringify({
             error: "invalid_request",
             message: "Command is required"
+          }),
+          {
+            status: 400,
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }
+        );
+      }
+
+      // Sanitize command - only allow --dry-run or --apply
+      const sanitizedCommand = command.trim().toLowerCase();
+      if (sanitizedCommand !== "--dry-run" && sanitizedCommand !== "--apply") {
+        return new Response(
+          JSON.stringify({
+            error: "invalid_request",
+            message: "Command must be either '--dry-run' or '--apply'"
           }),
           {
             status: 400,
@@ -390,17 +407,10 @@ Deno.serve(async (req) => {
           agent_id: agentId,
           script_id: scriptId,
           execution_type: executionType,
-          command: command,
+          command: sanitizedCommand,
           status: "pending",
           triggered_by: userId,
-          should_reboot: body.should_reboot || false,
-          metadata: {
-            dry_run: body.dry_run || false,
-            apply: body.apply !== false,
-            package_exceptions: body.package_exceptions || [],
-            schedule: body.schedule || null,
-            ...body.metadata
-          }
+          should_reboot: body.should_reboot || false
         })
         .select();
 

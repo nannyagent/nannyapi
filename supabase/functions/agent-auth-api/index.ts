@@ -199,11 +199,6 @@ async function handleAgentMetrics(req) {
       disk_percent: validateDiskPercent(metrics.disk_usage) || validateDiskPercent(metrics.disk_percent),
       network_in_kbps: validateNetworkKbps(metrics.network_in_kbps),
       network_out_kbps: validateNetworkKbps(metrics.network_out_kbps),
-      ip_address: safeStringValue(metrics.ip_address),
-      location: safeStringValue(metrics.location),
-      agent_version: safeStringValue(metrics.agent_version),
-      kernel_version: safeStringValue(metrics.kernel_version),
-      device_fingerprint: safeStringValue(metrics.device_fingerprint),
       load_averages: {
         load1: validateLoadAverage(metrics.load_averages?.load1 || metrics.load1),
         load5: validateLoadAverage(metrics.load_averages?.load5 || metrics.load5),
@@ -218,10 +213,6 @@ async function handleAgentMetrics(req) {
       },
       filesystem_info: metrics.filesystem_info || [],
       block_devices: metrics.block_devices || [],
-      network_stats: {
-        network_in_kbps: validateNetworkKbps(metrics.network_stats?.network_in_kbps || metrics.network_in_kbps),
-        network_out_kbps: validateNetworkKbps(metrics.network_stats?.network_out_kbps || metrics.network_out_kbps)
-      },
       extra: {
         user_id: agent.user_id,
         agent_type: agent.agent_type,

@@ -25,3 +25,15 @@ setup
 go.work
 go.work.sum
 nannyapi
+
+# supabase specific
+supabase/migrations/*.lock
+supabase/migrations/*.lock
+supabase/storage/.temp
+supabase/storage/.cache
+supabase/functions/.temp
+supabase/functions/.cache
+supabase/.supabaserc
+supabase/.temp
+supabase/.cache
+supabase/.local

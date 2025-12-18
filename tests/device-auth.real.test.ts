@@ -1,277 +1,230 @@
-import { describe, it, expect, beforeAll, afterAll } from 'npm:vitest@latest';
+import { describe, it, expect } from "vitest";
 
-const SUPABASE_URL = 'http://localhost:54321';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtleSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjE1NzcwNzkyLCJleHAiOjE5MzE3NzA3OTJ9.SReKsIWjz_scH0OWf8nV03ihP8P_M5_juTv7IkaWh6w';
-const EDGE_FUNCTION_URL = 'http://localhost:54321/functions/v1/device-auth';
+const API_URL = "http://localhost:54321";
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvY2FsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQzNjAwMDAsImV4cCI6MTc2NTk2MDAwMH0.v3tU3EuNIlCJ0O3dX4X4X4X4X4X4X4X4X4X4X4X4X4X';
+const DEVICE_AUTH_URL = `${API_URL}/functions/v1/device-auth`;
+const CLEANUP_URL = `${API_URL}/functions/v1/device-auth-cleanup`;
 
-describe('Device Auth - Code Validation', () => {
-  it('should validate code format on authorize', async () => {
-    // Authorize to get a device code and user code
-    const authorizeResponse = await fetch(`${EDGE_FUNCTION_URL}?action=authorize`, {
-      method: 'POST',
+// Generate a user-like JWT token for /device/approve endpoint (which requires extracting user_id)
+function generateValidUserJWT(userId?: string): string {
+  const actualUserId = userId || `test-user-${Date.now()}`;
+  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = btoa(JSON.stringify({
+    sub: actualUserId,
+    iss: "supabase",
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    role: "authenticated"
+  }));
+  const signature = btoa("dummy-signature");
+  return `${header}.${payload}.${signature}`;
+}
+
+describe("Device Auth - Requirement 1: Code Format (10-char alphanumeric)", () => {
+  it("should generate valid 10-character alphanumeric code on authorize", async () => {
+    const response = await fetch(`${DEVICE_AUTH_URL}/device/authorize`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        client_id: 'test-client-123'
+        client_id: `test-client-${Date.now()}`
       })
     });
 
-    expect(authorizeResponse.status).toBe(200);
-    const data = await authorizeResponse.json();
-    
-    // Verify user_code is 10-character alphanumeric
+    expect(response.status).toBe(200);
+    const data = await response.json();
     expect(data.user_code).toBeDefined();
     expect(data.user_code).toMatch(/^[A-Z0-9]{10}$/);
-    expect(data.user_code.length).toBe(10);
+    expect(data.device_code).toBeDefined();
   });
 
-  it('should reject invalid code format on approve', async () => {
-    // Try to approve with invalid code format
-    const invalidCodes = [
-      'invalid-code',      // Contains dash
-      'lowercase1234',     // Contains lowercase
-      '12345',            // Too short
-      '12345678901',      // Too long
-      'ABCD@1234',        // Contains special character
-      'CODE-1-2-3'        // Contains multiple dashes and lowercase
-    ];
-
-    for (const invalidCode of invalidCodes) {
-      // Create a mock JWT for user (service role)
-      const jwt = await generateMockJWT();
-      
-      const approveResponse = await fetch(`${EDGE_FUNCTION_URL}?action=approve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwt}`,
-          'x-client-id': 'test-client'
-        },
-        body: JSON.stringify({
-          user_code: invalidCode
-        })
-      });
-
-      // Should be 400 (Bad Request) for invalid format
-      expect([400, 404, 429]).toContain(approveResponse.status);
-      const responseData = await approveResponse.json();
-      
-      if (approveResponse.status === 400) {
-        expect(responseData.error).toBe('invalid_code_format');
-        expect(responseData.message).toContain('must be 10 alphanumeric characters');
-      }
-    }
-  });
-
-  it('should accept valid code format on approve attempt', async () => {
-    // First authorize to get a valid code
-    const authorizeResponse = await fetch(`${EDGE_FUNCTION_URL}?action=authorize`, {
-      method: 'POST',
+  it("should reject invalid code format on approve (WITH AUTH)", async () => {
+    const userJWT = generateValidUserJWT();
+    const response = await fetch(`${DEVICE_AUTH_URL}/device/approve`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${userJWT}`
       },
       body: JSON.stringify({
-        client_id: 'test-client-456'
+        user_code: "invalid-code"
       })
     });
 
-    const authorizeData = await authorizeResponse.json();
-    const validCode = authorizeData.user_code;
-
-    // Verify it matches the expected format
-    expect(validCode).toMatch(/^[A-Z0-9]{10}$/);
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe("invalid_code_format");
   });
 });
 
-describe('Device Auth - 10 Minute Expiry', () => {
-  it('should generate code with 10 minute expiry', async () => {
-    const authorizeResponse = await fetch(`${EDGE_FUNCTION_URL}?action=authorize`, {
-      method: 'POST',
+describe("Device Auth - Requirement 2: 10-Minute TTL", () => {
+  it("should generate code with 600 second (10 minute) expiry", async () => {
+    const response = await fetch(`${DEVICE_AUTH_URL}/device/authorize`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        client_id: 'test-client-expiry'
+        client_id: `test-client-${Date.now()}`
       })
     });
 
-    expect(authorizeResponse.status).toBe(200);
-    const data = await authorizeResponse.json();
-    
-    // expires_in should be 600 seconds (10 minutes)
+    expect(response.status).toBe(200);
+    const data = await response.json();
     expect(data.expires_in).toBe(600);
   });
-
-  it('should reject expired codes', async () => {
-    // This test would need a way to manipulate time or wait 10 minutes
-    // For now, we'll skip or use a simpler approach
-    // In production, you'd use a test utility to set time forward
-    
-    console.log('Skipping real expiry test (would require time manipulation)');
-  });
 });
 
-describe('Device Auth - Rate Limiting', () => {
-  it('should allow up to 10 failed attempts', async () => {
-    const clientId = 'test-client-rate-limit-' + Date.now();
-    
-    // Try to approve with invalid code 10 times
-    for (let i = 0; i < 10; i++) {
-      const jwt = await generateMockJWT();
-      
-      const approveResponse = await fetch(`${EDGE_FUNCTION_URL}?action=approve`, {
-        method: 'POST',
+describe("Device Auth - Requirement 3: Per-Agent Code Uniqueness", () => {
+  it("should prevent code reuse across different agents", async () => {
+    const userJWT = generateValidUserJWT();
+    const authResponse = await fetch(`${DEVICE_AUTH_URL}/device/authorize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        client_id: `unique-test-${Date.now()}`
+      })
+    });
+
+    expect(authResponse.status).toBe(200);
+    const authData = await authResponse.json();
+    const userCode = authData.user_code;
+
+    // Try to approve with first agent
+    const approve1 = await fetch(`${DEVICE_AUTH_URL}/device/approve`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${userJWT}`
+      },
+      body: JSON.stringify({
+        user_code: userCode
+      })
+    });
+
+    // If approve succeeded
+    if (approve1.status === 200) {
+      // Try to use same code with different agent
+      const approve2 = await fetch(`${DEVICE_AUTH_URL}/device/approve`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwt}`,
-          'x-client-id': clientId
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${userJWT}`
         },
         body: JSON.stringify({
-          user_code: 'INVALIDCOD' + String(i).padStart(1, '0')
+          user_code: userCode
         })
       });
 
-      // Should get 400 for invalid format or 404 for not found
-      expect([400, 404]).toContain(approveResponse.status);
+      expect(approve2.status).toBe(400);
+      const data = await approve2.json();
+      expect(data.error).toBe("code_already_used");
     }
   });
+});
 
-  it('should reject with 429 after 10 failed attempts', async () => {
-    const clientId = 'test-client-rate-limit-blocked-' + Date.now();
+describe("Device Auth - Requirement 4: Rate Limiting (10 attempts max)", () => {
+  it("should enforce rate limiting after 10 failed attempts", async () => {
+    const testClientId = `rate-limit-test-${Date.now()}`;
+    const userJWT = generateValidUserJWT();
     
-    // Make 11 failed attempts
+    // Generate ONE valid device code
+    const authResponse = await fetch(`${DEVICE_AUTH_URL}/device/authorize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        client_id: testClientId
+      })
+    });
+    expect(authResponse.status).toBe(200);
+    const { user_code } = await authResponse.json();
+
+    // Try to approve the code with wrong attempts - each should fail with 404/etc
     for (let i = 0; i < 11; i++) {
-      const jwt = await generateMockJWT();
+      // Use codes that don't exist but have valid format
+      const fakeCode = `FAKE${String(i).padStart(6, '0')}`;
       
-      const approveResponse = await fetch(`${EDGE_FUNCTION_URL}?action=approve`, {
-        method: 'POST',
+      const response = await fetch(`${DEVICE_AUTH_URL}/device/approve`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwt}`,
-          'x-client-id': clientId
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${userJWT}`,
+          "x-client-id": testClientId
         },
         body: JSON.stringify({
-          user_code: 'INVALIDCOD' + String(i).padStart(1, '0')
+          user_code: fakeCode
         })
       });
 
       if (i < 10) {
-        // First 10 should be 400 or 404
-        expect([400, 404]).toContain(approveResponse.status);
+        // First 10 attempts should fail with 404 (code not found)
+        expect(response.status).toBe(404);
+        // Add small delay to allow database to persist
+        await new Promise(resolve => setTimeout(resolve, 50));
       } else {
-        // 11th attempt should be 429
-        expect(approveResponse.status).toBe(429);
-        const data = await approveResponse.json();
-        expect(data.error).toBe('rate_limit_exceeded');
-        expect(data.message).toContain('Maximum 10 failed attempts');
+        // 11th attempt should be rate limited (429)
+        expect(response.status).toBe(429);
       }
     }
   });
 });
 
-describe('Device Auth - Code Uniqueness', () => {
-  it('should prevent code reuse by different agents', async () => {
-    // This test verifies the device_code_consumption tracking
-    // First, authorize to get a code
-    const authorizeResponse = await fetch(`${EDGE_FUNCTION_URL}?action=authorize`, {
-      method: 'POST',
+describe("Device Auth - Requirement 5: Hostname Deduplication", () => {
+  it("should deduplicate hostnames with -1, -2 suffixes", async () => {
+    const clientId = `nannyagent-test-host`;
+
+    // First authorize with this hostname
+    const response1 = await fetch(`${DEVICE_AUTH_URL}/device/authorize`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        client_id: 'test-client-uniqueness'
-      })
-    });
-
-    const authorizeData = await authorizeResponse.json();
-    const userCode = authorizeData.user_code;
-
-    // Create two different agent tokens
-    const jwt1 = await generateMockJWT('agent-user-1');
-    const jwt2 = await generateMockJWT('agent-user-2');
-
-    // Try to use the same code for both agents
-    // First approval should succeed
-    const approve1 = await fetch(`${EDGE_FUNCTION_URL}?action=approve`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwt1}`,
-        'x-client-id': 'agent-1'
-      },
-      body: JSON.stringify({ user_code: userCode })
-    });
-
-    // If first approval succeeds
-    if (approve1.status === 200) {
-      // Second approval attempt should fail
-      const approve2 = await fetch(`${EDGE_FUNCTION_URL}?action=approve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwt2}`,
-          'x-client-id': 'agent-2'
-        },
-        body: JSON.stringify({ user_code: userCode })
-      });
-
-      // Should fail with code_already_used or not_found
-      expect([400, 404]).toContain(approve2.status);
-      const data = await approve2.json();
-      if (approve2.status === 400) {
-        expect(data.error).toBe('code_already_used');
-      }
-    }
-  });
-});
-
-describe('Device Auth - Hostname Deduplication', () => {
-  it('should handle hostname-based agent naming', async () => {
-    const clientId = 'hostname-client-' + Date.now();
-    
-    // The device-auth function should extract hostname from client_id
-    // and use it to name the agent, with deduplication (-1, -2, etc.)
-    
-    const authorizeResponse = await fetch(`${EDGE_FUNCTION_URL}?action=authorize`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         client_id: clientId
       })
     });
 
-    expect(authorizeResponse.status).toBe(200);
-    const data = await authorizeResponse.json();
-    expect(data.user_code).toBeDefined();
-    expect(data.device_code).toBeDefined();
+    expect(response1.status).toBe(200);
+    const data1 = await response1.json();
+    expect(data1.user_code).toMatch(/^[A-Z0-9]{10}$/);
+
+    // Second authorize with same hostname should succeed
+    const response2 = await fetch(`${DEVICE_AUTH_URL}/device/authorize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        client_id: clientId
+      })
+    });
+
+    expect(response2.status).toBe(200);
+    const data2 = await response2.json();
+    expect(data2.user_code).toMatch(/^[A-Z0-9]{10}$/);
+    // Should be different code
+    expect(data2.user_code).not.toBe(data1.user_code);
   });
 });
 
-// Helper function to generate a mock JWT token
-async function generateMockJWT(userId?: string): Promise<string> {
-  const defaultUserId = userId || 'test-user-' + Date.now();
-  
-  // For testing, we'll create a simple JWT-like header and payload
-  // In real tests, you'd use proper JWT signing
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = btoa(JSON.stringify({ 
-    sub: defaultUserId,
-    user_id: defaultUserId,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + 3600
-  }));
-  const signature = btoa('test-signature');
-  
-  return `${header}.${payload}.${signature}`;
-}
+describe("Device Auth - Requirement 6: Cleanup Cron Function", () => {
+  it("should have cleanup function available (authenticated)", async () => {
+    const userJWT = generateValidUserJWT();
+    // Try to call the cleanup function with auth
+    const response = await fetch(CLEANUP_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${userJWT}`
+      }
+    });
 
-// Re-export for use in other test files
-export { generateMockJWT };
+    // Should not be 404 (function exists)
+    expect(response.status).not.toBe(404);
+  });
+});

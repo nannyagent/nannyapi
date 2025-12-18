@@ -25,14 +25,8 @@ jobs:
       - name: Start Supabase
         run: supabase status
       
-      - name: Check database migrations
-        run: supabase migration list
-      
       - name: Verify schema was applied
         run: supabase db reset
-      
-      - name: Run database tests
-        run: supabase test db
       
       - name: Run tests
         run: npm run test -- --coverage

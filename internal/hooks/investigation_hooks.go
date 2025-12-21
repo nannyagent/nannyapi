@@ -36,6 +36,6 @@ func RegisterInvestigationHooks(app core.App) {
 			return investigations.HandleInvestigations(app, c)
 		})
 
-		return nil
+		return e.Next()
 	})
 }

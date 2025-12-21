@@ -36,6 +36,6 @@ func RegisterPatchHooks(app core.App) {
 			return patches.HandlePatchOperations(app, c)
 		})
 
-		return nil
+		return e.Next()
 	})
 }

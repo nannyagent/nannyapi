@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "patch-scripts:upload": "node patch-scripts/upload-patch-scripts.js"
   },
   "keywords": [],
   "author": "",

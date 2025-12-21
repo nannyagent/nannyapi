@@ -1,8 +1,11 @@
 package investigations
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -12,10 +15,12 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// CreateInvestigation creates a new investigation record and calls TensorZero API
-// Called when user initiates investigation via API
+// CreateInvestigation creates investigation record (portal-initiated only)
+// Called by: User via `/api/investigations` POST
+// Does: Validate prompt (10+ chars), create DB record, return investigation_id
+// Then: Agent receives via realtime, sends back to same endpoint as proxy
 func CreateInvestigation(app core.App, userID string, req types.InvestigationRequest) (*types.InvestigationResponse, error) {
-	// Basic validation
+	// Validation
 	if req.AgentID == "" || req.Issue == "" {
 		return nil, fmt.Errorf("agent_id and issue are required")
 	}
@@ -32,20 +37,18 @@ func CreateInvestigation(app core.App, userID string, req types.InvestigationReq
 		return nil, fmt.Errorf("investigations collection not found: %w", err)
 	}
 
-	// Get agents collection to verify agent exists and user owns it
+	// Verify agent exists and belongs to user
 	agentsCollection, err := app.FindCollectionByNameOrId("agents")
 	if err != nil {
 		return nil, fmt.Errorf("agents collection not found: %w", err)
 	}
 
-	// Verify agent exists and belongs to user
 	agentRecord, err := app.FindRecordById(agentsCollection.Id, req.AgentID)
 	if err != nil {
 		return nil, fmt.Errorf("agent not found: %w", err)
 	}
 
-	agentUserID := agentRecord.GetString("user_id")
-	if agentUserID != userID {
+	if agentRecord.GetString("user_id") != userID {
 		return nil, fmt.Errorf("unauthorized: agent does not belong to user")
 	}
 
@@ -55,7 +58,7 @@ func CreateInvestigation(app core.App, userID string, req types.InvestigationReq
 		priority = "medium"
 	}
 
-	// Create new investigation record
+	// Create investigation record (status: pending, no episode_id)
 	record := core.NewRecord(collection)
 	record.Set("user_id", userID)
 	record.Set("agent_id", req.AgentID)
@@ -69,43 +72,19 @@ func CreateInvestigation(app core.App, userID string, req types.InvestigationReq
 		return nil, fmt.Errorf("failed to save investigation: %w", err)
 	}
 
-	// Call TensorZero API for AI analysis (asynchronously in production)
-	tzClient := tensorzero.NewClient()
-	messages := []types.ChatMessage{
-		{
-			Role:    "user",
-			Content: fmt.Sprintf("System Issue: %s\n\nAgent ID: %s\n\nPlease analyze this issue and provide diagnostic insights and resolution steps.", trimmedIssue, req.AgentID),
-		},
-	}
-
-	tzResp, err := tzClient.CallChatCompletion(messages)
-	if err != nil {
-		// Log error but don't fail investigation creation - it can be retried later
-		fmt.Printf("Warning: TensorZero API call failed: %v\n", err)
-	} else if tzResp != nil && tzResp.EpisodeID != "" {
-		// Update investigation with episode_id from TensorZero
-		record.Set("episode_id", tzResp.EpisodeID)
-		if len(tzResp.Choices) > 0 {
-			record.Set("resolution_plan", tzResp.Choices[0].Message.Content)
-			record.Set("status", string(types.InvestigationStatusInProgress))
-		}
-		if err := app.Save(record); err != nil {
-			fmt.Printf("Warning: Failed to update investigation with TensorZero response: %v\n", err)
-		}
-	}
-
-	// Return response
 	return &types.InvestigationResponse{
-		ID:         record.Id,
-		UserID:     userID,
-		AgentID:    req.AgentID,
-		EpisodeID:  record.GetString("episode_id"),
-		UserPrompt: trimmedIssue,
-		Priority:   priority,
-		Status:     types.InvestigationStatus(record.GetString("status")),
-		CreatedAt:  record.GetDateTime("created").Time(),
-		UpdatedAt:  record.GetDateTime("updated").Time(),
-		Metadata:   make(map[string]interface{}),
+		ID:             record.Id,
+		UserID:         userID,
+		AgentID:        req.AgentID,
+		EpisodeID:      "",
+		UserPrompt:     trimmedIssue,
+		Priority:       priority,
+		Status:         types.InvestigationStatusPending,
+		ResolutionPlan: "",
+		InitiatedAt:    record.GetDateTime("initiated_at").Time(),
+		CreatedAt:      record.GetDateTime("created").Time(),
+		UpdatedAt:      record.GetDateTime("updated").Time(),
+		Metadata:       make(map[string]interface{}),
 	}, nil
 }
 
@@ -158,27 +137,39 @@ func GetInvestigation(app core.App, userID, investigationID string) (*types.Inve
 	}
 
 	response := &types.InvestigationResponse{
-		ID:         record.Id,
-		UserID:     userID,
-		AgentID:    record.GetString("agent_id"),
-		EpisodeID:  record.GetString("episode_id"),
-		UserPrompt: record.GetString("user_prompt"),
-		Priority:   record.GetString("priority"),
-		Status:     types.InvestigationStatus(record.GetString("status")),
-		CreatedAt:  record.GetDateTime("created").Time(),
-		UpdatedAt:  record.GetDateTime("updated").Time(),
-		Metadata:   getMetadata(record),
+		ID:             record.Id,
+		UserID:         userID,
+		AgentID:        record.GetString("agent_id"),
+		EpisodeID:      record.GetString("episode_id"),
+		UserPrompt:     record.GetString("user_prompt"),
+		Priority:       record.GetString("priority"),
+		Status:         types.InvestigationStatus(record.GetString("status")),
+		ResolutionPlan: record.GetString("resolution_plan"),
+		InitiatedAt:    record.GetDateTime("initiated_at").Time(),
+		CreatedAt:      record.GetDateTime("created").Time(),
+		UpdatedAt:      record.GetDateTime("updated").Time(),
+		Metadata:       getMetadata(record),
 	}
 
-	// If episode_id exists, query ClickHouse for inference data
+	// Add CompletedAt if it exists
+	completedAt := record.GetDateTime("completed_at").Time()
+	if !completedAt.IsZero() {
+		response.CompletedAt = &completedAt
+	}
+
+	// If episode_id exists, query ClickHouse for inference data (ESSENTIAL for production)
 	if response.EpisodeID != "" {
 		chClient := clickhouse.NewClient()
 		inferences, err := chClient.FetchInferencesByEpisode(response.EpisodeID)
 		if err != nil {
-			// Log error but don't fail - investigation is still valid
-			fmt.Printf("Warning: Failed to fetch inferences from ClickHouse: %v\n", err)
+			// In tests without ClickHouse configured, skip the query but log
+			if os.Getenv("CLICKHOUSE_URL") != "" {
+				// ClickHouse is configured but failed - this is an error
+				return nil, fmt.Errorf("failed to fetch inferences from ClickHouse: %w", err)
+			}
+			// ClickHouse not configured - continue without inferences (test environment)
 		} else {
-			// Add inference count to response metadata if not already set
+			// Add inference count to response metadata
 			if response.Metadata == nil {
 				response.Metadata = make(map[string]interface{})
 			}
@@ -217,6 +208,45 @@ func UpdateInvestigationStatus(
 		record.Set("resolution_plan", resolutionPlan)
 	}
 	if status == types.InvestigationStatusCompleted || status == types.InvestigationStatusFailed {
+		record.Set("completed_at", time.Now())
+	}
+
+	if err := app.Save(record); err != nil {
+		return fmt.Errorf("failed to update investigation: %w", err)
+	}
+
+	return nil
+}
+
+// TrackInvestigationResponse tracks TensorZero responses
+// Called when agent proxies TensorZero responses back to API
+// Updates episode_id on first response, marks complete when resolution_plan arrives
+func TrackInvestigationResponse(
+	app core.App,
+	investigationID string,
+	episodeID string,
+	resolutionPlan string,
+) error {
+	collection, err := app.FindCollectionByNameOrId("investigations")
+	if err != nil {
+		return fmt.Errorf("investigations collection not found: %w", err)
+	}
+
+	record, err := app.FindRecordById(collection.Id, investigationID)
+	if err != nil {
+		return fmt.Errorf("investigation not found: %w", err)
+	}
+
+	// Update episode_id if provided and not already set
+	if episodeID != "" && record.GetString("episode_id") == "" {
+		record.Set("episode_id", episodeID)
+		record.Set("status", string(types.InvestigationStatusInProgress))
+	}
+
+	// Mark investigation complete if resolution_plan provided
+	if resolutionPlan != "" {
+		record.Set("resolution_plan", resolutionPlan)
+		record.Set("status", string(types.InvestigationStatusCompleted))
 		record.Set("completed_at", time.Now())
 	}
 
@@ -284,17 +314,106 @@ func HandleInvestigations(app core.App, c *core.RequestEvent) error {
 }
 
 func handleCreateInvestigation(app core.App, c *core.RequestEvent, userID string) error {
-	var req types.InvestigationRequest
-	if err := c.BindBody(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "invalid request"})
-	}
-
-	resp, err := CreateInvestigation(app, userID, req)
+	// Read request body to determine if this is a proxy or portal-initiated request
+	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "failed to read request"})
+	}
+	defer c.Request.Body.Close()
+
+	// Parse raw JSON to check for investigation_id
+	var bodyMap map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &bodyMap); err != nil {
+		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "invalid JSON"})
 	}
 
-	return c.JSON(http.StatusCreated, resp)
+	investigationID, hasInvestigationID := bodyMap["investigation_id"].(string)
+
+	// CASE 1: Portal-initiated investigation (no investigation_id in body)
+	if !hasInvestigationID {
+		var req types.InvestigationRequest
+		if err := json.Unmarshal(bodyBytes, &req); err != nil {
+			return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "invalid request format"})
+		}
+
+		resp, err := CreateInvestigation(app, userID, req)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: err.Error()})
+		}
+
+		return c.JSON(http.StatusCreated, resp)
+	}
+
+	// CASE 2: Agent proxy request (has investigation_id in body)
+	// Forward request UNCHANGED to TensorZero Core, parse response for episode_id/resolution_plan
+	return proxyToTensorZero(app, c, userID, investigationID, bodyBytes)
+}
+
+// proxyToTensorZero forwards investigation request to TensorZero Core unchanged
+func proxyToTensorZero(app core.App, c *core.RequestEvent, userID, investigationID string, bodyBytes []byte) error {
+	// Verify investigation exists and belongs to user
+	collection, err := app.FindCollectionByNameOrId("investigations")
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "investigations collection not found"})
+	}
+
+	record, err := app.FindRecordById(collection.Id, investigationID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, types.ErrorResponse{Error: "investigation not found"})
+	}
+
+	// Verify user ownership
+	if record.GetString("user_id") != userID {
+		return c.JSON(http.StatusForbidden, types.ErrorResponse{Error: "unauthorized"})
+	}
+
+	// Parse request as TensorZero core request
+	var tzRequest types.TensorZeroCoreRequest
+	if err := json.Unmarshal(bodyBytes, &tzRequest); err != nil {
+		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "invalid TensorZero request format"})
+	}
+
+	// Forward to TensorZero Core UNCHANGED
+	tzClient := tensorzero.NewClient()
+	tzResp, err := tzClient.CallChatCompletion(tzRequest.Messages)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: fmt.Sprintf("TensorZero error: %v", err)})
+	}
+
+	// Parse TensorZero response for episode_id (first response) and resolution_plan (final response)
+	episodeID := tzResp.EpisodeID
+	var resolutionPlan string
+
+	// Parse response content to extract resolution_plan
+	if len(tzResp.Choices) > 0 {
+		// Content is a JSON string that needs to be parsed
+		content := tzResp.Choices[0].Message.Content
+
+		// Try to parse as ResolutionResponse (final response with resolution_plan)
+		var resolutionResp types.ResolutionResponse
+		if err := json.Unmarshal([]byte(content), &resolutionResp); err == nil {
+			// Successfully parsed - this is a resolution response
+			if resolutionResp.ResponseType == "resolution" && resolutionResp.ResolutionPlan != "" {
+				resolutionPlan = resolutionResp.ResolutionPlan
+			}
+		} else {
+			// Not a resolution response, try to parse as DiagnosticResponse
+			var diagnosticResp types.DiagnosticResponse
+			if err := json.Unmarshal([]byte(content), &diagnosticResp); err == nil {
+				// Diagnostic response - no resolution plan yet
+				// This is normal for intermediate responses
+			}
+		}
+	}
+
+	// Track investigation response in database
+	if err := TrackInvestigationResponse(app, investigationID, episodeID, resolutionPlan); err != nil {
+		// Log error but continue - response still needs to be returned to agent
+		fmt.Printf("Warning: Failed to track investigation response: %v\n", err)
+	}
+
+	// Return TensorZero response as-is to agent
+	return c.JSON(http.StatusOK, tzResp)
 }
 
 func handleListInvestigations(app core.App, c *core.RequestEvent, userID string) error {

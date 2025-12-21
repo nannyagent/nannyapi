@@ -37,7 +37,7 @@ type InvestigationRequest struct {
 	Priority string `json:"priority" validate:"omitempty,oneof=low medium high"` // Defaults to medium
 }
 
-// InvestigationResponse is returned when investigation is created
+// InvestigationResponse is returned when investigation is created or retrieved
 type InvestigationResponse struct {
 	ID             string                 `json:"id"`
 	UserID         string                 `json:"user_id"`
@@ -46,7 +46,9 @@ type InvestigationResponse struct {
 	UserPrompt     string                 `json:"user_prompt"`
 	Priority       string                 `json:"priority"`
 	Status         InvestigationStatus    `json:"status"`
+	ResolutionPlan string                 `json:"resolution_plan"` // AI-generated resolution from TensorZero
 	InitiatedAt    time.Time              `json:"initiated_at"`
+	CompletedAt    *time.Time             `json:"completed_at"`
 	CreatedAt      time.Time              `json:"created_at"`
 	UpdatedAt      time.Time              `json:"updated_at"`
 	Metadata       map[string]interface{} `json:"metadata"`
@@ -110,7 +112,7 @@ type Feedback struct {
 
 // TensorZeroCoreRequest is sent to TensorZero for AI analysis
 type TensorZeroCoreRequest struct {
-	Model    string        `json:"model"` // tensorzero::function_name::diagnose_and_heal_application
+	Model    string        `json:"model"` // tensorzero::function_name::diagnose_and_heal or diagnose_and_heal_application
 	Messages []ChatMessage `json:"messages"`
 }
 
@@ -120,14 +122,64 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
-// TensorZeroResponse is received from TensorZero
+// TensorZeroResponse is the complete response from TensorZero Core API
+// Matches: https://tensorzero-api.nannyai.dev/openai/v1/chat/completions
 type TensorZeroResponse struct {
-	EpisodeID string     `json:"episode_id"`
-	Choices   []Choice   `json:"choices"`
-	Usage     TokenUsage `json:"usage"`
+	ID                string             `json:"id"`                 // Response ID
+	EpisodeID         string             `json:"episode_id"`         // Unique episode identifier
+	Choices           []TensorZeroChoice `json:"choices"`            // Completion choices
+	Created           int64              `json:"created"`            // Unix timestamp
+	Model             string             `json:"model"`              // Model used (e.g., tensorzero::function_name::diagnose_and_heal::variant_name::v1)
+	SystemFingerprint string             `json:"system_fingerprint"` // System fingerprint
+	ServiceTier       interface{}        `json:"service_tier"`       // Service tier (can be null)
+	Object            string             `json:"object"`             // "chat.completion"
+	Usage             TokenUsage         `json:"usage"`              // Token usage stats
 }
 
-// Choice is TensorZero's completion choice
+// TensorZeroChoice represents a completion choice from TensorZero
+type TensorZeroChoice struct {
+	Index        int               `json:"index"`         // Choice index
+	FinishReason string            `json:"finish_reason"` // "stop", "length", etc
+	Message      TensorZeroMessage `json:"message"`       // Assistant message
+}
+
+// TensorZeroMessage represents an assistant message from TensorZero
+type TensorZeroMessage struct {
+	Role      string        `json:"role"`       // "assistant"
+	Content   string        `json:"content"`    // JSON string containing response_type, reasoning, commands, ebpf_programs, etc
+	ToolCalls []interface{} `json:"tool_calls"` // Tool calls (if any)
+}
+
+// DiagnosticResponse is parsed from TensorZeroMessage.Content
+// This is the JSON content within the assistant's message
+type DiagnosticResponse struct {
+	ResponseType string        `json:"response_type"` // "diagnostic"
+	Reasoning    string        `json:"reasoning"`     // Diagnostic reasoning
+	Commands     []string      `json:"commands"`      // Shell commands to run
+	eBPFPrograms []eBPFProgram `json:"ebpf_programs"` // eBPF tracing programs
+}
+
+// eBPFProgram represents an eBPF/bpftrace program
+type eBPFProgram struct {
+	Name        string                 `json:"name"`        // Program name
+	Type        string                 `json:"type"`        // "bpftrace"
+	Target      string                 `json:"target"`      // bpftrace script/target
+	Duration    int                    `json:"duration"`    // Duration in seconds
+	Filters     map[string]interface{} `json:"filters"`     // Optional filters
+	Description string                 `json:"description"` // Program description
+}
+
+// ResolutionResponse is parsed from TensorZeroMessage.Content (final response)
+// This is the JSON content within the assistant's final message
+type ResolutionResponse struct {
+	ResponseType   string `json:"response_type"`   // "resolution"
+	RootCause      string `json:"root_cause"`      // Root cause analysis
+	ResolutionPlan string `json:"resolution_plan"` // Step-by-step resolution plan
+	Confidence     string `json:"confidence"`      // "High", "Medium", "Low"
+	eBPFEvidence   string `json:"ebpf_evidence"`   // Evidence from eBPF monitoring
+}
+
+// Choice is TensorZero's completion choice (deprecated: use TensorZeroChoice)
 type Choice struct {
 	Index        int         `json:"index"`
 	Message      ChatMessage `json:"message"`

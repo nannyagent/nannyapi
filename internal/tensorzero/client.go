@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/nannyagent/nannyapi/internal/types"
 )
@@ -28,7 +29,7 @@ func NewClient() *Client {
 	return &Client{
 		baseURL: baseURL,
 		apiKey:  os.Getenv("TENSORZERO_API_KEY"),
-		client:  &http.Client{Timeout: 300}, // 5 minute timeout for long operations
+		client:  &http.Client{Timeout: 5 * time.Minute}, // 5 minute timeout for long AI operations
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 // RegisterInvestigationHooks registers all investigation management endpoints
 func RegisterInvestigationHooks(app core.App) {
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		// POST /api/investigations - Create investigation
+		// POST /api/investigations - Create investigation (portal-initiated)
 		e.Router.POST("/api/investigations", func(c *core.RequestEvent) error {
 			if err := utils.ExtractAuthFromHeader(c, app); err != nil {
 				return err

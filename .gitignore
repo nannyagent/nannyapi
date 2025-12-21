@@ -32,3 +32,4 @@ CODE-AGENT.md
 
 # Pocketbase related
 pb_data/
+.env

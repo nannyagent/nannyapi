@@ -321,7 +321,7 @@ func TestInvestigationWithClickHouseEnrichment(t *testing.T) {
 		}
 
 		// Update with episode_id and resolution
-		episodeID := "ch-episode-456"
+		episodeID := "019b403f-74a1-7201-a70e-1eacd1fc6e63"
 		resolutionPlan := "Increase connection pool size from 50 to 100 in config"
 
 		err = investigations.TrackInvestigationResponse(app, investigation.ID, episodeID, resolutionPlan)

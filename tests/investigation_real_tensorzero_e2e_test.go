@@ -87,7 +87,7 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		// API extracts investigation_id, validates auth, forwards to TensorZero
 		t.Logf("✓ Simulating: Agent POSTs to /api/investigations with investigation_id")
 		t.Logf("  API validates token and investigation ownership")
-		t.Logf("  API forwards to REAL TensorZero Core (https://tensorzero-api.nannyai.dev)")
+		t.Logf("  API forwards to REAL TensorZero Core")
 		t.Logf("  This would take 5-30 seconds depending on AI processing time")
 	})
 
@@ -145,9 +145,15 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		}
 
 		// Verify investigation now has episode_id
-		investigation, _ := investigations.GetInvestigation(app, userID, investigationID)
+		investigation, err := investigations.GetInvestigation(app, userID, investigationID)
+		if err != nil {
+			t.Fatalf("Failed to get investigation: %v", err)
+		}
+		if investigation == nil {
+			t.Fatal("Investigation is nil after tracking")
+		}
 		if investigation.EpisodeID != tzResponse.EpisodeID {
-			t.Fatalf("Episode ID not tracked correctly")
+			t.Fatalf("Episode ID not tracked correctly: expected %s, got %s", tzResponse.EpisodeID, investigation.EpisodeID)
 		}
 
 		if investigation.Status != types.InvestigationStatusInProgress {
@@ -241,7 +247,13 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		}
 
 		// Verify investigation marked complete
-		investigation, _ := investigations.GetInvestigation(app, userID, investigationID)
+		investigation, err := investigations.GetInvestigation(app, userID, investigationID)
+		if err != nil {
+			t.Fatalf("Failed to get investigation: %v", err)
+		}
+		if investigation == nil {
+			t.Fatal("Investigation is nil after tracking resolution")
+		}
 		if investigation.Status != types.InvestigationStatusCompleted {
 			t.Fatalf("Investigation should be completed, got %s", investigation.Status)
 		}
@@ -356,9 +368,18 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 			},
 		}
 
-		investigations.TrackInvestigationResponse(app, investigationID, tzResponse.EpisodeID, "")
+		err := investigations.TrackInvestigationResponse(app, investigationID, tzResponse.EpisodeID, "")
+		if err != nil {
+			t.Fatalf("Failed to track investigation: %v", err)
+		}
 
-		investigation, _ := investigations.GetInvestigation(app, userID, investigationID)
+		investigation, err := investigations.GetInvestigation(app, userID, investigationID)
+		if err != nil {
+			t.Fatalf("Failed to get investigation: %v", err)
+		}
+		if investigation == nil {
+			t.Fatal("Investigation is nil after tracking")
+		}
 		if investigation.EpisodeID != tzResponse.EpisodeID {
 			t.Fatalf("Episode ID not tracked")
 		}
@@ -430,9 +451,18 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 			t.Fatalf("Expected resolution, got %s", resolutionResp.ResponseType)
 		}
 
-		investigations.TrackInvestigationResponse(app, investigationID, "", resolutionResp.ResolutionPlan)
+		err := investigations.TrackInvestigationResponse(app, investigationID, "", resolutionResp.ResolutionPlan)
+		if err != nil {
+			t.Fatalf("Failed to track resolution: %v", err)
+		}
 
-		investigation, _ := investigations.GetInvestigation(app, userID, investigationID)
+		investigation, err := investigations.GetInvestigation(app, userID, investigationID)
+		if err != nil {
+			t.Fatalf("Failed to get investigation: %v", err)
+		}
+		if investigation == nil {
+			t.Fatal("Investigation is nil after tracking resolution")
+		}
 		if investigation.Status != types.InvestigationStatusCompleted {
 			t.Fatalf("Investigation should be completed")
 		}

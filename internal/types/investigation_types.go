@@ -123,7 +123,7 @@ type ChatMessage struct {
 }
 
 // TensorZeroResponse is the complete response from TensorZero Core API
-// Matches: https://tensorzero-api.nannyai.dev/openai/v1/chat/completions
+// Matches: /openai/v1/chat/completions
 type TensorZeroResponse struct {
 	ID                string             `json:"id"`                 // Response ID
 	EpisodeID         string             `json:"episode_id"`         // Unique episode identifier

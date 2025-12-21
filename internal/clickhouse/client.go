@@ -23,17 +23,31 @@ type Client struct {
 }
 
 // NewClient creates a new ClickHouse client
+// FAILS if CLICKHOUSE_URL, CLICKHOUSE_PASSWORD, TENSORZERO_API_URL, or TENSORZERO_API_KEY are not set
 func NewClient() *Client {
 	baseURL := os.Getenv("CLICKHOUSE_URL")
 	if baseURL == "" {
-		baseURL = "https://clickhouse.nannyai.dev"
+		panic("CLICKHOUSE_URL environment variable is required")
+	}
+
+	password := os.Getenv("CLICKHOUSE_PASSWORD")
+	if password == "" {
+		panic("CLICKHOUSE_PASSWORD environment variable is required")
+	}
+
+	// Also verify TensorZero credentials are set (required for the system)
+	if os.Getenv("TENSORZERO_API_URL") == "" {
+		panic("TENSORZERO_API_URL environment variable is required")
+	}
+	if os.Getenv("TENSORZERO_API_KEY") == "" {
+		panic("TENSORZERO_API_KEY environment variable is required")
 	}
 
 	return &Client{
 		baseURL:  baseURL,
 		database: getEnv("CLICKHOUSE_DATABASE", "tensorzero"),
 		user:     getEnv("CLICKHOUSE_USER", "default"),
-		password: os.Getenv("CLICKHOUSE_PASSWORD"),
+		password: password,
 		client:   &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -201,10 +215,27 @@ func (c *Client) executeQuery(query string) ([][]interface{}, error) {
 		return nil, fmt.Errorf("ClickHouse error: %d %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	// Parse JSONCompact response
+	// Parse ClickHouse response - could be JSONCompact (array) or JSON object
 	var result [][]interface{}
+
+	// First, try to unmarshal as JSONCompact (array of arrays)
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		// If that fails, try to parse as JSON object with "data" field
+		var responseObj map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &responseObj); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		// Extract data array if present
+		if dataField, ok := responseObj["data"]; ok {
+			dataBytes, _ := json.Marshal(dataField)
+			if err := json.Unmarshal(dataBytes, &result); err != nil {
+				return nil, fmt.Errorf("failed to parse data field: %w", err)
+			}
+		} else {
+			// No data field, return empty result
+			result = [][]interface{}{}
+		}
 	}
 
 	return result, nil

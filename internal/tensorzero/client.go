@@ -20,15 +20,21 @@ type Client struct {
 }
 
 // NewClient creates a new TensorZero client
+// FAILS if TENSORZERO_API_URL or TENSORZERO_API_KEY is not set
 func NewClient() *Client {
 	baseURL := os.Getenv("TENSORZERO_API_URL")
 	if baseURL == "" {
-		baseURL = "https://tensorzero-api.nannyai.dev"
+		panic("TENSORZERO_API_URL environment variable is required")
+	}
+
+	apiKey := os.Getenv("TENSORZERO_API_KEY")
+	if apiKey == "" {
+		panic("TENSORZERO_API_KEY environment variable is required")
 	}
 
 	return &Client{
 		baseURL: baseURL,
-		apiKey:  os.Getenv("TENSORZERO_API_KEY"),
+		apiKey:  apiKey,
 		client:  &http.Client{Timeout: 5 * time.Minute}, // 5 minute timeout for long AI operations
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -160,22 +159,18 @@ func GetInvestigation(app core.App, userID, investigationID string) (*types.Inve
 	// If episode_id exists, query ClickHouse for inference data (ESSENTIAL for production)
 	if response.EpisodeID != "" {
 		chClient := clickhouse.NewClient()
+		// ClickHouse is configured and required
 		inferences, err := chClient.FetchInferencesByEpisode(response.EpisodeID)
 		if err != nil {
-			// In tests without ClickHouse configured, skip the query but log
-			if os.Getenv("CLICKHOUSE_URL") != "" {
-				// ClickHouse is configured but failed - this is an error
-				return nil, fmt.Errorf("failed to fetch inferences from ClickHouse: %w", err)
-			}
-			// ClickHouse not configured - continue without inferences (test environment)
-		} else {
-			// Add inference count to response metadata
-			if response.Metadata == nil {
-				response.Metadata = make(map[string]interface{})
-			}
-			response.InferenceCount = len(inferences)
-			response.Metadata["inferences"] = inferences
+			// ClickHouse configured but failed - this is an error
+			return nil, fmt.Errorf("failed to fetch inferences from ClickHouse: %w", err)
 		}
+		// Add inference count to response metadata
+		if response.Metadata == nil {
+			response.Metadata = make(map[string]interface{})
+		}
+		response.InferenceCount = len(inferences)
+		response.Metadata["inferences"] = inferences
 	}
 
 	return response, nil
@@ -375,6 +370,8 @@ func proxyToTensorZero(app core.App, c *core.RequestEvent, userID, investigation
 
 	// Forward to TensorZero Core UNCHANGED
 	tzClient := tensorzero.NewClient()
+	// tzClient will panic if credentials are not set, which is correct behavior
+
 	tzResp, err := tzClient.CallChatCompletion(tzRequest.Messages)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: fmt.Sprintf("TensorZero error: %v", err)})

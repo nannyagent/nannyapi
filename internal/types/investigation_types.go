@@ -140,3 +140,32 @@ type TokenUsage struct {
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 }
+
+// EpisodeData represents TensorZero episode information
+type EpisodeData struct {
+	ID                    string    `json:"id"`
+	InferenceCount        int       `json:"inference_count"`
+	FirstInferenceTime    time.Time `json:"first_inference_time"`
+	LastInferenceTime     time.Time `json:"last_inference_time"`
+	FunctionsUsed         []string  `json:"functions_used"`
+	TotalProcessingTimeMs int64     `json:"total_processing_time_ms"`
+}
+
+// InferenceData represents TensorZero inference details
+type InferenceData struct {
+	ID               string                 `json:"id"`
+	FunctionName     string                 `json:"function_name"`
+	VariantName      string                 `json:"variant_name"`
+	EpisodeID        string                 `json:"episode_id"`
+	Input            map[string]interface{} `json:"input"`
+	Output           []OutputMessage        `json:"output"`
+	ProcessingTimeMs int64                  `json:"processing_time_ms"`
+	Timestamp        time.Time              `json:"timestamp"`
+	ModelInferences  []ModelInference       `json:"model_inferences"`
+}
+
+// OutputMessage represents output from an inference
+type OutputMessage struct {
+	Type string `json:"type"` // text, json, etc
+	Text string `json:"text"`
+}

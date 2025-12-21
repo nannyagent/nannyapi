@@ -207,16 +207,17 @@ func HandlePatchOperations(app core.App, c *core.RequestEvent) error {
 	user := authRecord.(*core.Record)
 
 	// Determine action based on method
-	if c.Request.Method == http.MethodPost {
+	switch c.Request.Method {
+	case http.MethodPost:
 		return handleCreatePatchOperation(app, c, user.Id)
-	} else if c.Request.Method == http.MethodGet {
+	case http.MethodGet:
 		// Check if getting specific operation or list
 		pathID := c.Request.URL.Query().Get("id")
 		if pathID != "" {
 			return handleGetPatchOperation(app, c, user.Id, pathID)
 		}
 		return handleListPatchOperations(app, c, user.Id)
-	} else if c.Request.Method == http.MethodPatch {
+	case http.MethodPatch:
 		pathID := c.Request.URL.Query().Get("id")
 		if pathID == "" {
 			return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "id parameter required"})

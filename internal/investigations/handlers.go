@@ -3,18 +3,27 @@ package investigations
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/nannyagent/nannyapi/internal/clickhouse"
+	"github.com/nannyagent/nannyapi/internal/tensorzero"
 	"github.com/nannyagent/nannyapi/internal/types"
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// CreateInvestigation creates a new investigation record
+// CreateInvestigation creates a new investigation record and calls TensorZero API
 // Called when user initiates investigation via API
 func CreateInvestigation(app core.App, userID string, req types.InvestigationRequest) (*types.InvestigationResponse, error) {
 	// Basic validation
 	if req.AgentID == "" || req.Issue == "" {
 		return nil, fmt.Errorf("agent_id and issue are required")
+	}
+
+	// Validate prompt length (minimum 10 characters)
+	trimmedIssue := strings.TrimSpace(req.Issue)
+	if len(trimmedIssue) < 10 {
+		return nil, fmt.Errorf("issue must be at least 10 characters long")
 	}
 
 	// Get investigations collection
@@ -50,7 +59,7 @@ func CreateInvestigation(app core.App, userID string, req types.InvestigationReq
 	record := core.NewRecord(collection)
 	record.Set("user_id", userID)
 	record.Set("agent_id", req.AgentID)
-	record.Set("user_prompt", req.Issue)
+	record.Set("user_prompt", trimmedIssue)
 	record.Set("priority", priority)
 	record.Set("status", string(types.InvestigationStatusPending))
 	record.Set("initiated_at", time.Now())
@@ -60,15 +69,40 @@ func CreateInvestigation(app core.App, userID string, req types.InvestigationReq
 		return nil, fmt.Errorf("failed to save investigation: %w", err)
 	}
 
+	// Call TensorZero API for AI analysis (asynchronously in production)
+	tzClient := tensorzero.NewClient()
+	messages := []types.ChatMessage{
+		{
+			Role:    "user",
+			Content: fmt.Sprintf("System Issue: %s\n\nAgent ID: %s\n\nPlease analyze this issue and provide diagnostic insights and resolution steps.", trimmedIssue, req.AgentID),
+		},
+	}
+
+	tzResp, err := tzClient.CallChatCompletion(messages)
+	if err != nil {
+		// Log error but don't fail investigation creation - it can be retried later
+		fmt.Printf("Warning: TensorZero API call failed: %v\n", err)
+	} else if tzResp != nil && tzResp.EpisodeID != "" {
+		// Update investigation with episode_id from TensorZero
+		record.Set("episode_id", tzResp.EpisodeID)
+		if len(tzResp.Choices) > 0 {
+			record.Set("resolution_plan", tzResp.Choices[0].Message.Content)
+			record.Set("status", string(types.InvestigationStatusInProgress))
+		}
+		if err := app.Save(record); err != nil {
+			fmt.Printf("Warning: Failed to update investigation with TensorZero response: %v\n", err)
+		}
+	}
+
 	// Return response
 	return &types.InvestigationResponse{
 		ID:         record.Id,
 		UserID:     userID,
 		AgentID:    req.AgentID,
-		EpisodeID:  "",
-		UserPrompt: req.Issue,
+		EpisodeID:  record.GetString("episode_id"),
+		UserPrompt: trimmedIssue,
 		Priority:   priority,
-		Status:     types.InvestigationStatusPending,
+		Status:     types.InvestigationStatus(record.GetString("status")),
 		CreatedAt:  record.GetDateTime("created").Time(),
 		UpdatedAt:  record.GetDateTime("updated").Time(),
 		Metadata:   make(map[string]interface{}),
@@ -106,7 +140,7 @@ func GetInvestigations(app core.App, userID string) ([]*types.InvestigationListR
 	return investigations, nil
 }
 
-// GetInvestigation retrieves a single investigation by ID
+// GetInvestigation retrieves a single investigation by ID and enriches with ClickHouse inferences
 func GetInvestigation(app core.App, userID, investigationID string) (*types.InvestigationResponse, error) {
 	collection, err := app.FindCollectionByNameOrId("investigations")
 	if err != nil {
@@ -123,7 +157,7 @@ func GetInvestigation(app core.App, userID, investigationID string) (*types.Inve
 		return nil, fmt.Errorf("unauthorized: investigation does not belong to user")
 	}
 
-	return &types.InvestigationResponse{
+	response := &types.InvestigationResponse{
 		ID:         record.Id,
 		UserID:     userID,
 		AgentID:    record.GetString("agent_id"),
@@ -134,7 +168,26 @@ func GetInvestigation(app core.App, userID, investigationID string) (*types.Inve
 		CreatedAt:  record.GetDateTime("created").Time(),
 		UpdatedAt:  record.GetDateTime("updated").Time(),
 		Metadata:   getMetadata(record),
-	}, nil
+	}
+
+	// If episode_id exists, query ClickHouse for inference data
+	if response.EpisodeID != "" {
+		chClient := clickhouse.NewClient()
+		inferences, err := chClient.FetchInferencesByEpisode(response.EpisodeID)
+		if err != nil {
+			// Log error but don't fail - investigation is still valid
+			fmt.Printf("Warning: Failed to fetch inferences from ClickHouse: %v\n", err)
+		} else {
+			// Add inference count to response metadata if not already set
+			if response.Metadata == nil {
+				response.Metadata = make(map[string]interface{})
+			}
+			response.InferenceCount = len(inferences)
+			response.Metadata["inferences"] = inferences
+		}
+	}
+
+	return response, nil
 }
 
 // UpdateInvestigationStatus updates investigation status and resolution
@@ -209,16 +262,17 @@ func HandleInvestigations(app core.App, c *core.RequestEvent) error {
 	user := authRecord.(*core.Record)
 
 	// Determine action based on method
-	if c.Request.Method == http.MethodPost {
+	switch c.Request.Method {
+	case http.MethodPost:
 		return handleCreateInvestigation(app, c, user.Id)
-	} else if c.Request.Method == http.MethodGet {
+	case http.MethodGet:
 		// Check if getting specific investigation or list
 		pathID := c.Request.URL.Query().Get("id")
 		if pathID != "" {
 			return handleGetInvestigation(app, c, user.Id, pathID)
 		}
 		return handleListInvestigations(app, c, user.Id)
-	} else if c.Request.Method == http.MethodPatch {
+	case http.MethodPatch:
 		pathID := c.Request.URL.Query().Get("id")
 		if pathID == "" {
 			return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "id parameter required"})

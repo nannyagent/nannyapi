@@ -347,6 +347,18 @@ func TestFilesystemStatsStructure(t *testing.T) {
 	if fs.UsagePercent != 48.93 {
 		t.Errorf("Expected usage_percent=48.93, got %f", fs.UsagePercent)
 	}
+
+	if fs.UsedGB != 250.5 {
+		t.Errorf("Expected used_gb=250.5, got %f", fs.UsedGB)
+	}
+
+	if fs.FreeGB != 261.5 {
+		t.Errorf("Expected free_gb=261.5, got %f", fs.FreeGB)
+	}
+
+	if fs.TotalGB != 512.0 {
+		t.Errorf("Expected total_gb=48.93, got %f", fs.TotalGB)
+	}
 }
 
 // TestLoadAverageStructure tests the LoadAverage type

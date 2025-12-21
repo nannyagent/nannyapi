@@ -26,6 +26,9 @@ func main() {
 	// Register agent hooks
 	hooks.RegisterAgentHooks(app)
 
+	// Register investigation and patch management hooks
+	hooks.RegisterInvestigationAndPatchHooks(app)
+
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}

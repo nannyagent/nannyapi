@@ -25,3 +25,10 @@ setup
 go.work
 go.work.sum
 nannyapi
+bin/
+
+# For coding agent
+CODE-AGENT.md
+
+# Pocketbase related
+pb_data/

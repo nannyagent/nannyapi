@@ -20,23 +20,12 @@ func RegisterAgentHooks(app core.App) {
 	// Single agent management endpoint handling all operations
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// POST /api/agent - Handles all agent operations
-		e.Router.POST("/api/agent", func(c *core.RequestEvent) error {
+		e.Router.POST("/api/agent", LoadAuthContext(app)(func(c *core.RequestEvent) error {
 			var baseReq struct {
 				Action string `json:"action"`
 			}
 			if err := c.BindBody(&baseReq); err != nil {
 				return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "invalid request"})
-			}
-
-			// For actions that need auth, extract the token
-			authHeader := c.Request.Header.Get("Authorization")
-			if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-				token := authHeader[7:]
-				// Try to get the auth record from token
-				record, _ := app.FindAuthRecordByToken(token, core.TokenTypeAuth)
-				if record != nil {
-					c.Set("authRecord", record)
-				}
 			}
 
 			switch baseReq.Action {
@@ -59,7 +48,7 @@ func RegisterAgentHooks(app core.App) {
 			default:
 				return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "unknown action"})
 			}
-		})
+		}))
 
 		// Cleanup cron job
 		go func() {

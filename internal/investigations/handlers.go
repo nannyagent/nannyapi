@@ -279,30 +279,42 @@ func SetEpisodeID(app core.App, userID, investigationID, episodeID string) error
 
 // HandleInvestigations handles investigation API endpoints
 func HandleInvestigations(app core.App, c *core.RequestEvent) error {
-	// Get authenticated user
+	// Get authenticated user or agent
 	authRecord := c.Get("authRecord")
 	if authRecord == nil {
 		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authentication required"})
 	}
-	user := authRecord.(*core.Record)
+	record := authRecord.(*core.Record)
+
+	var userID string
+	if record.Collection().Name == "users" {
+		userID = record.Id
+	} else if record.Collection().Name == "agents" {
+		userID = record.GetString("user_id")
+		if userID == "" {
+			return c.JSON(http.StatusForbidden, types.ErrorResponse{Error: "agent has no owner"})
+		}
+	} else {
+		return c.JSON(http.StatusForbidden, types.ErrorResponse{Error: "invalid authentication type"})
+	}
 
 	// Determine action based on method
 	switch c.Request.Method {
 	case http.MethodPost:
-		return handleCreateInvestigation(app, c, user.Id)
+		return handleCreateInvestigation(app, c, userID)
 	case http.MethodGet:
 		// Check if getting specific investigation or list
 		pathID := c.Request.URL.Query().Get("id")
 		if pathID != "" {
-			return handleGetInvestigation(app, c, user.Id, pathID)
+			return handleGetInvestigation(app, c, userID, pathID)
 		}
-		return handleListInvestigations(app, c, user.Id)
+		return handleListInvestigations(app, c, userID)
 	case http.MethodPatch:
 		pathID := c.Request.URL.Query().Get("id")
 		if pathID == "" {
 			return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "id parameter required"})
 		}
-		return handleUpdateInvestigation(app, c, user.Id, pathID)
+		return handleUpdateInvestigation(app, c, userID, pathID)
 	}
 
 	return c.JSON(http.StatusMethodNotAllowed, types.ErrorResponse{Error: "method not allowed"})

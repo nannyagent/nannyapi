@@ -99,10 +99,10 @@ func init() {
 		})
 
 		// Set API rules - only investigation owner and their agents
-		investigations.ListRule = ptrString("user_id = @request.auth.id")
-		investigations.ViewRule = ptrString("user_id = @request.auth.id")
-		investigations.CreateRule = ptrString("user_id = @request.auth.id")
-		investigations.UpdateRule = ptrString("user_id = @request.auth.id")
+		investigations.ListRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
+		investigations.ViewRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
+		investigations.CreateRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
+		investigations.UpdateRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
 		investigations.DeleteRule = ptrString("user_id = @request.auth.id")
 
 		if err := app.Save(investigations); err != nil {

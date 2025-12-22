@@ -199,30 +199,42 @@ func CreatePackageUpdate(
 
 // HandlePatchOperations handles patch operation API endpoints
 func HandlePatchOperations(app core.App, c *core.RequestEvent) error {
-	// Get authenticated user
+	// Get authenticated user or agent
 	authRecord := c.Get("authRecord")
 	if authRecord == nil {
 		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authentication required"})
 	}
-	user := authRecord.(*core.Record)
+	record := authRecord.(*core.Record)
+
+	var userID string
+	if record.Collection().Name == "users" {
+		userID = record.Id
+	} else if record.Collection().Name == "agents" {
+		userID = record.GetString("user_id")
+		if userID == "" {
+			return c.JSON(http.StatusForbidden, types.ErrorResponse{Error: "agent has no owner"})
+		}
+	} else {
+		return c.JSON(http.StatusForbidden, types.ErrorResponse{Error: "invalid authentication type"})
+	}
 
 	// Determine action based on method
 	switch c.Request.Method {
 	case http.MethodPost:
-		return handleCreatePatchOperation(app, c, user.Id)
+		return handleCreatePatchOperation(app, c, userID)
 	case http.MethodGet:
 		// Check if getting specific operation or list
 		pathID := c.Request.URL.Query().Get("id")
 		if pathID != "" {
-			return handleGetPatchOperation(app, c, user.Id, pathID)
+			return handleGetPatchOperation(app, c, userID, pathID)
 		}
-		return handleListPatchOperations(app, c, user.Id)
+		return handleListPatchOperations(app, c, userID)
 	case http.MethodPatch:
 		pathID := c.Request.URL.Query().Get("id")
 		if pathID == "" {
 			return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "id parameter required"})
 		}
-		return handleUpdatePatchOperation(app, c, user.Id, pathID)
+		return handleUpdatePatchOperation(app, c, userID, pathID)
 	}
 
 	return c.JSON(http.StatusMethodNotAllowed, types.ErrorResponse{Error: "method not allowed"})

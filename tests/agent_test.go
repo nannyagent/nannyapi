@@ -127,6 +127,7 @@ func TestAgentRegistration(t *testing.T) {
 	agentRecord.Set("status", string(types.AgentStatusActive))
 	agentRecord.Set("last_seen", time.Now())
 	agentRecord.Set("kernel_version", "5.4.0-42-generic")
+	agentRecord.SetPassword("testpass123")
 
 	// Generate tokens
 	refreshToken := fmt.Sprintf("refresh-%d", time.Now().UnixNano())
@@ -210,7 +211,10 @@ func TestAgentMetricsStorage(t *testing.T) {
 	agentRecord.Set("status", string(types.AgentStatusActive))
 	agentRecord.Set("last_seen", time.Now())
 	agentRecord.Set("kernel_version", "5.4.0-42-generic")
-	app.Save(agentRecord)
+	agentRecord.SetPassword("testpass123")
+	if err := app.Save(agentRecord); err != nil {
+		t.Fatalf("Failed to create agent: %v", err)
+	}
 	t.Logf("✅ Created agent: %s", agentRecord.Id)
 
 	// Create metrics
@@ -530,6 +534,7 @@ func TestAgentStatusValidation(t *testing.T) {
 			agent.Set("status", string(tt.status))
 			agent.Set("kernel_version", "5.4.0-42-generic")
 			agent.Set("last_seen", time.Now())
+			agent.SetPassword("testpass123")
 
 			if err := app.Save(agent); err != nil {
 				t.Fatalf("Failed to create %s: %v", tt.description, err)

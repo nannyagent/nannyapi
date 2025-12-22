@@ -8,41 +8,25 @@ import (
 	"log"
 	"math/big"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/nannyagent/nannyapi/internal/types"
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// generateJWT creates a JWT token for an agent
-func generateJWT(agentID string, secret string) (string, error) {
-	claims := jwt.MapClaims{
-		"agent_id": agentID,
-		"exp":      time.Now().Add(1 * time.Hour).Unix(),
-		"iat":      time.Now().Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
-}
-
-// verifyJWT verifies a JWT token and returns the agent ID
-func verifyJWT(tokenString string, secret string) (string, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(secret), nil
-	})
-	if err != nil {
-		return "", err
-	}
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		if agentID, ok := claims["agent_id"].(string); ok {
-			return agentID, nil
+// generateRandomPassword creates a strong random password
+func generateRandomPassword(length int) (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+	b := make([]byte, length)
+	for i := range b {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return "", err
 		}
+		b[i] = charset[num.Int64()]
 	}
-	return "", jwt.ErrInvalidKey
+	return string(b), nil
 }
 
 // HandleDeviceAuthStart - anonymous agent requests device code
@@ -166,6 +150,13 @@ func HandleRegister(app core.App, c *core.RequestEvent) error {
 	agentRecord.Set("last_seen", time.Now())
 	agentRecord.Set("kernel_version", req.KernelVersion)
 
+	// Set random password to satisfy Auth collection requirements
+	password, err := generateRandomPassword(32)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "failed to generate password"})
+	}
+	agentRecord.SetPassword(password)
+
 	// Store IP addresses if provided
 	if req.PrimaryIP != "" {
 		agentRecord.Set("primary_ip", req.PrimaryIP)
@@ -194,12 +185,8 @@ func HandleRegister(app core.App, c *core.RequestEvent) error {
 		log.Printf("Warning: failed to mark device code as consumed: %v", err)
 	}
 
-	// Generate JWT access token (never stored in DB)
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "default-secret-change-in-production" // Fallback for dev
-	}
-	accessToken, tokenErr := generateJWT(agentRecord.Id, jwtSecret)
+	// Generate PocketBase Auth Token
+	accessToken, tokenErr := agentRecord.NewAuthToken()
 	if tokenErr != nil {
 		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "failed to generate token"})
 	}
@@ -207,7 +194,7 @@ func HandleRegister(app core.App, c *core.RequestEvent) error {
 	return c.JSON(http.StatusOK, types.TokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    3600,
+		ExpiresIn:    3600, // Default PB token expiry is usually 14 days or configurable, but we can just say 3600 or whatever
 		AgentID:      agentRecord.Id,
 	})
 }
@@ -237,12 +224,8 @@ func HandleRefreshToken(app core.App, c *core.RequestEvent) error {
 		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "refresh token expired"})
 	}
 
-	// Generate new JWT access token
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "default-secret-change-in-production"
-	}
-	accessToken, tokenErr := generateJWT(agentRecord.Id, jwtSecret)
+	// Generate new PocketBase Auth Token
+	accessToken, tokenErr := agentRecord.NewAuthToken()
 	if tokenErr != nil {
 		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "failed to generate token"})
 	}
@@ -261,29 +244,15 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "invalid request"})
 	}
 
-	// Get and verify JWT from Authorization header
-	authHeader := c.Request.Header.Get("Authorization")
-	if authHeader == "" || len(authHeader) < 8 || authHeader[:7] != "Bearer " {
-		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authorization header required"})
+	// Get authenticated agent from context (set by middleware)
+	authRecord := c.Get("authRecord")
+	if authRecord == nil {
+		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authentication required"})
 	}
 
-	token := authHeader[7:]
-
-	// Verify JWT and extract agent_id
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "default-secret-change-in-production"
-	}
-	agentID, tokenErr := verifyJWT(token, jwtSecret)
-	if tokenErr != nil {
-		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "invalid token"})
-	}
-
-	// Load agent record
-	collection, _ := app.FindCollectionByNameOrId("agents")
-	agentRecord, err := app.FindRecordById(collection, agentID)
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "agent not found"})
+	agentRecord, ok := authRecord.(*core.Record)
+	if !ok || agentRecord.Collection().Name != "agents" {
+		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "invalid agent authentication"})
 	}
 
 	if agentRecord.GetString("status") == string(types.AgentStatusRevoked) {

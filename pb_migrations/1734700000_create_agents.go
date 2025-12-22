@@ -70,8 +70,21 @@ func init() {
 			return err
 		}
 
-		// Create agents collection - use base collection, implement JWT manually
-		agents := core.NewBaseCollection("agents")
+		// Create agents collection of type auth
+		agents := core.NewAuthCollection("agents")
+		agents.Fields.Add(&core.EmailField{
+			Name:     "email",
+			Required: false,
+			System:   true,
+			Hidden:   true,
+		})
+
+		agents.Fields.Add(&core.PasswordField{
+			Name:     "password",
+			Required: false,
+			System:   true,
+			Hidden:   true,
+		})
 
 		// Add fields needed for JWT generation (must have id which base collection provides)
 

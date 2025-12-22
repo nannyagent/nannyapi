@@ -55,6 +55,7 @@ func createTestAgent(app *tests.TestApp, t *testing.T, userID, hostname string) 
 	agentRecord.Set("platform", "linux")
 	agentRecord.Set("version", "1.0.0")
 	agentRecord.Set("device_code_id", deviceCodeRecord.Id)
+	agentRecord.SetPassword("testpass123")
 
 	if err := app.Save(agentRecord); err != nil {
 		t.Fatalf("Failed to create agent: %v", err)

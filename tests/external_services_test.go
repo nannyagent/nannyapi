@@ -42,7 +42,7 @@ func TestRealEpisodeValidation(t *testing.T) {
 	if len(inferences) != 3 {
 		t.Fatalf("Expected 3 inferences, got %d", len(inferences))
 	}
-	t.Logf("✓ Found exactly 3 inferences for episode %s", episodeID)
+	t.Logf("Found exactly 3 inferences for episode %s", episodeID)
 
 	// 2. Validate each inference content
 	for i, inf := range inferences {
@@ -74,7 +74,7 @@ func TestRealEpisodeValidation(t *testing.T) {
 			continue
 		}
 
-		t.Logf("  Response Type: %s", responseType)
+		t.Logf("Response Type: %s", responseType)
 
 		if responseType == "diagnostic" {
 			// Check for required fields in diagnostic response
@@ -83,9 +83,9 @@ func TestRealEpisodeValidation(t *testing.T) {
 			// Note: 'usage' column is not currently available in ChatInference table or query
 			// Skipping strict check for now
 			if inf.Usage != nil {
-				t.Logf("    ✓ token_usage present (in Usage field)")
+				t.Logf("token_usage present (in Usage field)")
 			} else {
-				t.Logf("    - token_usage check skipped (Usage field is nil/unavailable)")
+				t.Logf("token_usage check skipped (Usage field is nil/unavailable)")
 			}
 
 			// Check Output fields
@@ -94,7 +94,7 @@ func TestRealEpisodeValidation(t *testing.T) {
 				if _, exists := outputMap[field]; !exists {
 					t.Errorf("Inference %d (diagnostic): missing field '%s' in Output", i+1, field)
 				} else {
-					t.Logf("    ✓ %s present in Output", field)
+					t.Logf("%s present in Output", field)
 				}
 			}
 
@@ -106,7 +106,7 @@ func TestRealEpisodeValidation(t *testing.T) {
 				// Since Input is a map, we can check if keys exist or if we need to dig deeper
 
 				// For now, let's just check if Input is not empty
-				t.Logf("    ✓ Input is present")
+				t.Logf("Input is present")
 
 				// TODO: Implement deep check for user_prompt and system_metrics in Input messages
 			} else {
@@ -119,11 +119,11 @@ func TestRealEpisodeValidation(t *testing.T) {
 				if _, exists := outputMap[field]; !exists {
 					t.Errorf("Inference %d (resolution): missing field '%s'", i+1, field)
 				} else {
-					t.Logf("    ✓ %s present", field)
+					t.Logf("%s present", field)
 				}
 			}
 		} else {
-			t.Logf("  Unknown response_type: %s (skipping specific validation)", responseType)
+			t.Logf("Unknown response_type: %s (skipping specific validation)", responseType)
 		}
 	}
 }

@@ -101,13 +101,13 @@ func TestPasswordValidation(t *testing.T) {
 				} else if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error containing '%s', got '%s'", tt.errMsg, err.Error())
 				} else {
-					t.Logf("✅ Correctly rejected: %v", err)
+					t.Logf("Correctly rejected: %v", err)
 				}
 			} else {
 				if err != nil {
 					t.Errorf("Expected success, got error: %v", err)
 				} else {
-					t.Logf("✅ User created successfully")
+					t.Logf("User created successfully")
 				}
 			}
 		})
@@ -133,7 +133,7 @@ func TestUserCreationAndLogin(t *testing.T) {
 		t.Fatalf("Failed to create user: %v", err)
 	}
 
-	t.Logf("✅ User created: %s", email)
+	t.Logf("User created: %s", email)
 
 	// Verify password is hashed
 	if record.GetString("password") == password {
@@ -145,7 +145,7 @@ func TestUserCreationAndLogin(t *testing.T) {
 		t.Error("User ID should be set after creation")
 	}
 
-	t.Logf("✅ User authentication simulation passed")
+	t.Logf("User authentication simulation passed")
 }
 
 func TestOAuthUserCannotSetPassword(t *testing.T) {
@@ -173,7 +173,7 @@ func TestOAuthUserCannotSetPassword(t *testing.T) {
 		t.Fatalf("Failed to mark as OAuth user: %v", err)
 	}
 
-	t.Logf("✅ OAuth user created")
+	t.Logf("OAuth user created")
 
 	// Try to change password
 	record.Set("password", "NewTestPass123!@#")
@@ -184,7 +184,7 @@ func TestOAuthUserCannotSetPassword(t *testing.T) {
 	} else if !contains(err.Error(), "OAuth") {
 		t.Errorf("Expected OAuth error, got: %v", err)
 	} else {
-		t.Logf("✅ OAuth password restriction working: %v", err)
+		t.Logf("OAuth password restriction working: %v", err)
 	}
 }
 
@@ -217,7 +217,7 @@ func TestDuplicateEmailPrevention(t *testing.T) {
 	if err == nil {
 		t.Error("Duplicate email should be rejected")
 	} else {
-		t.Logf("✅ Duplicate email correctly prevented: %v", err)
+		t.Logf("Duplicate email correctly prevented: %v", err)
 	}
 }
 
@@ -247,7 +247,7 @@ func TestPasswordReusePrevention(t *testing.T) {
 		t.Fatalf("Failed to create user: %v", err)
 	}
 
-	t.Logf("✅ User created")
+	t.Logf("User created")
 
 	// Try to reuse the same password
 	record.Set("password", password)
@@ -258,7 +258,7 @@ func TestPasswordReusePrevention(t *testing.T) {
 	} else if !contains(err.Error(), "recently used") {
 		t.Errorf("Expected reuse error, got: %v", err)
 	} else {
-		t.Logf("✅ Password reuse correctly prevented: %v", err)
+		t.Logf("Password reuse correctly prevented: %v", err)
 	}
 
 	// Try a different password
@@ -269,7 +269,7 @@ func TestPasswordReusePrevention(t *testing.T) {
 	if err != nil {
 		t.Errorf("New password should be accepted, got error: %v", err)
 	} else {
-		t.Logf("✅ New password accepted")
+		t.Logf("New password accepted")
 	}
 }
 
@@ -316,7 +316,7 @@ func TestPasswordChangeFrequencyLimit(t *testing.T) {
 	} else if !contains(err.Error(), "too many") {
 		t.Errorf("Expected frequency limit error, got: %v", err)
 	} else {
-		t.Logf("✅ Password change frequency limit working: %v", err)
+		t.Logf("Password change frequency limit working: %v", err)
 	}
 }
 
@@ -363,7 +363,7 @@ func TestGitHubOAuthConfiguration(t *testing.T) {
 			if provider.ClientId == "" {
 				t.Error("GitHub OAuth ClientId is empty")
 			}
-			t.Logf("✅ GitHub OAuth configured with ClientId: %s", provider.ClientId)
+			t.Logf("GitHub OAuth configured with ClientId: %s", provider.ClientId)
 			break
 		}
 	}
@@ -401,7 +401,7 @@ func TestGoogleOAuthConfiguration(t *testing.T) {
 			if provider.ClientId == "" {
 				t.Error("Google OAuth ClientId is empty")
 			}
-			t.Logf("✅ Google OAuth configured with ClientId: %s", provider.ClientId)
+			t.Logf("Google OAuth configured with ClientId: %s", provider.ClientId)
 			break
 		}
 	}

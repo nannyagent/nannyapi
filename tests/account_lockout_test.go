@@ -67,7 +67,7 @@ func TestAccountLockoutAfterFailedAttempts(t *testing.T) {
 		t.Fatalf("Failed to create user: %v", err)
 	}
 	userId := userRecord.Id
-	t.Logf("✅ Created test user: %s", userId)
+	t.Logf("Created test user: %s", userId)
 
 	for i := 0; i < 4; i++ {
 		err := security.TrackFailedAuthAttempt(testApp, userId)
@@ -79,7 +79,7 @@ func TestAccountLockoutAfterFailedAttempts(t *testing.T) {
 
 	// Verify 4 attempts recorded
 	attempts, _ := testApp.FindRecordsByFilter(attemptsCollection, "user_id = {:userId}", "", 10, 0, map[string]any{"userId": userId})
-	t.Logf("✅ 4 failed attempts recorded (%d records)", len(attempts))
+	t.Logf("4 failed attempts recorded (%d records)", len(attempts))
 
 	lockErr := security.TrackFailedAuthAttempt(testApp, userId)
 	if lockErr == nil {
@@ -90,7 +90,7 @@ func TestAccountLockoutAfterFailedAttempts(t *testing.T) {
 	if lockErr.Error() != "account locked due to too many failed attempts. Please try again in 30 minutes" {
 		t.Errorf("Wrong lockout error: %v", lockErr)
 	}
-	t.Logf("✅ 5th attempt triggered lockout: %v", lockErr)
+	t.Logf("5th attempt triggered lockout: %v", lockErr)
 
 	lockouts, lockErr2 := testApp.FindRecordsByFilter(lockoutCollection, "user_id = {:userId}", "", 1, 0, map[string]any{"userId": userId})
 	if lockErr2 != nil || len(lockouts) == 0 {
@@ -104,7 +104,7 @@ func TestAccountLockoutAfterFailedAttempts(t *testing.T) {
 	if lockedUntil.Before(time.Now()) || lockedUntil.After(expectedLockUntil.Add(1*time.Minute)) {
 		t.Errorf("Lock time incorrect: got %v, expected around %v", lockedUntil, expectedLockUntil)
 	}
-	t.Logf("✅ Lockout record created, locked until %v", lockedUntil)
+	t.Logf("Lockout record created, locked until %v", lockedUntil)
 
 	checkErr := security.CheckAccountLockout(testApp, userId)
 	if checkErr == nil {
@@ -112,13 +112,13 @@ func TestAccountLockoutAfterFailedAttempts(t *testing.T) {
 		debugLockouts, _ := testApp.FindRecordsByFilter(lockoutCollection, "user_id = {:userId}", "", 1, 0, map[string]any{"userId": userId})
 		t.Fatalf("CheckAccountLockout should return error for locked account (found %d lockouts)", len(debugLockouts))
 	}
-	t.Logf("✅ CheckAccountLockout returns error: %v", checkErr)
+	t.Logf("CheckAccountLockout returns error: %v", checkErr)
 
 	attempts, _ = testApp.FindRecordsByFilter(attemptsCollection, "user_id = {:userId}", "", 10, 0, map[string]any{"userId": userId})
 	if len(attempts) != 5 {
 		t.Errorf("Expected 5 failed attempt records, got %d", len(attempts))
 	}
-	t.Logf("✅ All 5 failed attempts recorded")
+	t.Logf("All 5 failed attempts recorded")
 
 	// TEST CRITICAL PART: Try to actually authenticate with the locked account
 	// This proves the lockout BLOCKS login, not just returns a message
@@ -133,5 +133,5 @@ func TestAccountLockoutAfterFailedAttempts(t *testing.T) {
 	if lockedCheckErr == nil {
 		t.Fatal("SECURITY FAILURE: CheckAccountLockout returned nil for locked account!")
 	}
-	t.Logf("✅ VERIFIED: Locked account check returns error: %v", lockedCheckErr)
+	t.Logf("VERIFIED: Locked account check returns error: %v", lockedCheckErr)
 }

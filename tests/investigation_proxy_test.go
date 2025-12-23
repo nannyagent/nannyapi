@@ -78,7 +78,7 @@ func TestInvestigationProxyWorkflow(t *testing.T) {
 		}
 
 		investigationID = investigation.ID
-		t.Logf("✓ Created investigation: %s", investigation.ID)
+		t.Logf("Created investigation: %s", investigation.ID)
 	})
 
 	// Step 2: Agent proxies TensorZero request with episode_id
@@ -107,8 +107,8 @@ func TestInvestigationProxyWorkflow(t *testing.T) {
 			t.Fatalf("Expected status InProgress, got %s", investigation.Status)
 		}
 
-		t.Logf("✓ Investigation updated with episode_id: %s", episodeID)
-		t.Logf("✓ Status changed to: %s", investigation.Status)
+		t.Logf("Investigation updated with episode_id: %s", episodeID)
+		t.Logf("Status changed to: %s", investigation.Status)
 	})
 
 	// Step 3: Agent sends multiple inferences through proxy (no resolution yet)
@@ -117,7 +117,7 @@ func TestInvestigationProxyWorkflow(t *testing.T) {
 		episodeID := "019b403f-74a1-7201-a70e-1eacd1fc6e63"
 
 		// Inference 2: Gathering process information
-		t.Logf("  Inference 2: Gathering process information...")
+		t.Logf("Inference 2: Gathering process information...")
 		err := investigations.TrackInvestigationResponse(app, investigationID, episodeID, "")
 		if err != nil {
 			t.Fatalf("Failed to track inference 2: %v", err)
@@ -134,13 +134,13 @@ func TestInvestigationProxyWorkflow(t *testing.T) {
 		}
 
 		// Inference 3: Analyzing eBPF output
-		t.Logf("  Inference 3: Analyzing eBPF output...")
+		t.Logf("Inference 3: Analyzing eBPF output...")
 		err = investigations.TrackInvestigationResponse(app, investigationID, episodeID, "")
 		if err != nil {
 			t.Fatalf("Failed to track inference 3: %v", err)
 		}
 
-		t.Logf("✓ Multiple inferences processed, investigation still in progress")
+		t.Logf("Multiple inferences processed, investigation still in progress")
 	})
 
 	// Step 4: Agent sends final response with resolution_plan
@@ -166,8 +166,8 @@ func TestInvestigationProxyWorkflow(t *testing.T) {
 			t.Fatalf("Expected status Completed, got %s", investigation.Status)
 		}
 
-		t.Logf("✓ Investigation marked as completed")
-		t.Logf("✓ Resolution plan: %s", resolutionPlan)
+		t.Logf("Investigation marked as completed")
+		t.Logf("Resolution plan: %s", resolutionPlan)
 	})
 
 	// Step 5: Verify final investigation state
@@ -190,10 +190,10 @@ func TestInvestigationProxyWorkflow(t *testing.T) {
 			t.Fatal("Completed timestamp should be set")
 		}
 
-		t.Logf("✓ Investigation workflow complete")
-		t.Logf("  - Status: %s", investigation.Status)
-		t.Logf("  - Episode ID: %s", investigation.ID)
-		t.Logf("  - Completed at: %v", investigation.CompletedAt)
+		t.Logf("Investigation workflow complete")
+		t.Logf("Status: %s", investigation.Status)
+		t.Logf("Episode ID: %s", investigation.ID)
+		t.Logf("Completed at: %v", investigation.CompletedAt)
 	})
 }
 
@@ -231,7 +231,7 @@ func TestInvestigationProxyPromptValidation(t *testing.T) {
 		},
 		{
 			name:      "Valid with whitespace trimming",
-			issue:     "   Valid issue with padding   ",
+			issue:     "Valid issue with padding",
 			expectErr: false,
 		},
 	}
@@ -293,10 +293,10 @@ func TestInvestigationProxyAgentInitiated(t *testing.T) {
 
 		// Simulate what proxy handler would do
 		episodeID := "agent-initiated-episode-123"
-		t.Logf("✓ Agent-initiated investigation")
-		t.Logf("  - Issue from metadata: %v", probeData["metadata"].(map[string]interface{})["issue_description"])
-		t.Logf("  - Would create/use episode: %s", episodeID)
-		t.Logf("  - TensorZero response processed through proxy")
+		t.Logf("Agent-initiated investigation")
+		t.Logf("Issue from metadata: %v", probeData["metadata"].(map[string]interface{})["issue_description"])
+		t.Logf("Would create/use episode: %s", episodeID)
+		t.Logf("TensorZero response processed through proxy")
 	})
 }
 
@@ -353,10 +353,10 @@ func TestInvestigationWithClickHouseEnrichment(t *testing.T) {
 			t.Errorf("Expected 'inferences' in metadata, indicating ClickHouse query succeeded (even if empty). Check ClickHouse connectivity.")
 		}
 
-		t.Logf("✓ Investigation retrieved with episode_id")
-		t.Logf("  - Episode ID: %s", result.EpisodeID)
-		t.Logf("  - Status: %s", result.Status)
-		t.Logf("  - Inferences found: %d", result.InferenceCount)
+		t.Logf("Investigation retrieved with episode_id")
+		t.Logf("Episode ID: %s", result.EpisodeID)
+		t.Logf("Status: %s", result.Status)
+		t.Logf("Inferences found: %d", result.InferenceCount)
 	})
 }
 

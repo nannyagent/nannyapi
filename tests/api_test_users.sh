@@ -78,9 +78,9 @@ REUSE_RESPONSE=$(curl -s -X PATCH "${BASE_URL}/api/collections/users/records/${U
 
 echo "Response: $REUSE_RESPONSE"
 if echo "$REUSE_RESPONSE" | grep -q "recently used"; then
-  echo -e "${GREEN}✓ Password reuse prevention is working!${NC}"
+  echo -e "${GREEN} Password reuse prevention is working!${NC}"
 else
-  echo -e "${RED}✗ Password reuse prevention not working${NC}"
+  echo -e "${RED} Password reuse prevention not working${NC}"
 fi
 echo ""
 
@@ -107,7 +107,7 @@ for i in {2..6}; do
       \"passwordConfirm\": \"TestPass${i}!@#Abc\",
       \"oldPassword\": \"NewSecurePass456!@#\"
     }" > /dev/null 2>&1
-  
+
   if [ $i -eq 6 ]; then
     # The 6th change should fail
     FREQ_RESPONSE=$(curl -s -X PATCH "${BASE_URL}/api/collections/users/records/${USER_ID}" \
@@ -118,11 +118,11 @@ for i in {2..6}; do
         "passwordConfirm": "TooManyChanges!@#123",
         "oldPassword": "TestPass5!@#Abc"
       }')
-    
+
     if echo "$FREQ_RESPONSE" | grep -q "too many"; then
-      echo -e "${GREEN}✓ Password frequency limit is working!${NC}"
+      echo -e "${GREEN} Password frequency limit is working!${NC}"
     else
-      echo -e "${RED}✗ Password frequency limit not working${NC}"
+      echo -e "${RED} Password frequency limit not working${NC}"
     fi
   fi
 done
@@ -141,9 +141,9 @@ INVALID_RESPONSE=$(curl -s -X PATCH "${BASE_URL}/api/collections/users/records/$
 
 echo "Response: $INVALID_RESPONSE"
 if echo "$INVALID_RESPONSE" | grep -qi "validation\|at least 8"; then
-  echo -e "${GREEN}✓ Password validation is working!${NC}"
+  echo -e "${GREEN} Password validation is working!${NC}"
 else
-  echo -e "${RED}✗ Password validation not working${NC}"
+  echo -e "${RED} Password validation not working${NC}"
 fi
 echo ""
 

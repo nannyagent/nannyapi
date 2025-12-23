@@ -140,12 +140,16 @@ func HandleRegister(app core.App, c *core.RequestEvent) error {
 	agentRecord := core.NewRecord(agentsCollection)
 	agentRecord.Set("user_id", userID)
 	agentRecord.Set("device_code_id", deviceRecord.Id)
+	agentRecord.Set("device_user_code", deviceRecord.GetString("user_code"))
 	agentRecord.Set("hostname", req.Hostname)
-	agentRecord.Set("platform", req.Platform)
+	agentRecord.Set("os_type", req.OSType)
+	agentRecord.Set("os_info", req.OSInfo)
+	agentRecord.Set("os_version", req.OSVersion)
 	agentRecord.Set("version", req.Version)
 	agentRecord.Set("status", string(types.AgentStatusActive))
 	agentRecord.Set("last_seen", time.Now())
 	agentRecord.Set("kernel_version", req.KernelVersion)
+	agentRecord.Set("arch", req.Arch)
 
 	// Set random password to satisfy Auth collection requirements
 	password, err := generateRandomPassword(32)
@@ -252,8 +256,31 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 		return c.JSON(http.StatusForbidden, types.ErrorResponse{Error: "agent revoked"})
 	}
 
-	// Update last_seen
+	// Update last_seen and other metadata
 	agentRecord.Set("last_seen", time.Now())
+	if req.OSInfo != "" {
+		agentRecord.Set("os_info", req.OSInfo)
+	}
+	if req.OSVersion != "" {
+		agentRecord.Set("os_version", req.OSVersion)
+	}
+	if req.Version != "" {
+		agentRecord.Set("version", req.Version)
+	}
+	if req.PrimaryIP != "" {
+		agentRecord.Set("primary_ip", req.PrimaryIP)
+	}
+	if req.KernelVersion != "" {
+		agentRecord.Set("kernel_version", req.KernelVersion)
+	}
+	if req.Arch != "" {
+		agentRecord.Set("arch", req.Arch)
+	}
+	if len(req.AllIPs) > 0 {
+		ipsJSON, _ := json.Marshal(req.AllIPs)
+		agentRecord.Set("all_ips", string(ipsJSON))
+	}
+
 	if err := app.Save(agentRecord); err != nil {
 		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "failed to update agent"})
 	}
@@ -276,96 +303,27 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 		metricsRecord.Set("agent_id", agentRecord.Id)
 	}
 
-	// Helper to convert interface{} to float64 - handles JSON number parsing
-	toFloat64 := func(v interface{}) (float64, bool) {
-		if v == nil {
-			return 0, false
-		}
-		switch val := v.(type) {
-		case float64:
-			return val, true
-		case float32:
-			return float64(val), true
-		case int:
-			return float64(val), true
-		case int64:
-			return float64(val), true
-		default:
-			return 0, false
-		}
-	}
+	// Set individual metric fields from SystemMetrics struct
+	metrics := req.SystemMetrics
 
-	// Set individual metric fields - support both system_metrics and metrics keys
-	metrics := req.Metrics
-	if systemMetrics, ok := req.SystemMetrics.(map[string]interface{}); ok && systemMetrics != nil {
-		metrics = systemMetrics
-	}
+	metricsRecord.Set("cpu_percent", metrics.CPUPercent)
+	metricsRecord.Set("cpu_cores", metrics.CPUCores)
+	metricsRecord.Set("memory_used_gb", metrics.MemoryUsedGB)
+	metricsRecord.Set("memory_total_gb", metrics.MemoryTotalGB)
+	metricsRecord.Set("memory_percent", metrics.MemoryPercent)
+	metricsRecord.Set("disk_used_gb", metrics.DiskUsedGB)
+	metricsRecord.Set("disk_total_gb", metrics.DiskTotalGB)
+	metricsRecord.Set("disk_usage_percent", metrics.DiskUsagePercent)
+	metricsRecord.Set("network_in_gb", metrics.NetworkStats.InGB)
+	metricsRecord.Set("network_out_gb", metrics.NetworkStats.OutGB)
+	metricsRecord.Set("load_avg_1min", metrics.LoadAverage.OneMin)
+	metricsRecord.Set("load_avg_5min", metrics.LoadAverage.FiveMin)
+	metricsRecord.Set("load_avg_15min", metrics.LoadAverage.FifteenMin)
 
-	if metrics != nil {
-		// CPU - try multiple key names
-		if cpu, ok := toFloat64(metrics["cpu_usage"]); ok {
-			metricsRecord.Set("cpu_percent", cpu)
-		} else if cpu, ok := toFloat64(metrics["cpu_usage_percent"]); ok {
-			metricsRecord.Set("cpu_percent", cpu)
-		}
-
-		// CPU Cores
-		if cores, ok := toFloat64(metrics["cpu_cores"]); ok {
-			metricsRecord.Set("cpu_cores", int(cores))
-		}
-
-		if memUsed, ok := toFloat64(metrics["memory_used_gb"]); ok {
-			metricsRecord.Set("memory_used_gb", memUsed)
-		}
-		if memTotal, ok := toFloat64(metrics["memory_total_gb"]); ok {
-			metricsRecord.Set("memory_total_gb", memTotal)
-			// Compute memory percent if we have memory_used_gb
-			if memUsed, found := toFloat64(metrics["memory_used_gb"]); found && memTotal > 0 {
-				memPercent := (memUsed / memTotal) * 100
-				metricsRecord.Set("memory_percent", memPercent)
-			}
-		}
-
-		// Disk
-		if diskUsed, ok := toFloat64(metrics["disk_used_gb"]); ok {
-			metricsRecord.Set("disk_used_gb", diskUsed)
-		}
-		if diskTotal, ok := toFloat64(metrics["disk_total_gb"]); ok {
-			metricsRecord.Set("disk_total_gb", diskTotal)
-			// Compute disk usage percent if we have disk_used_gb
-			if diskUsed, found := toFloat64(metrics["disk_used_gb"]); found && diskTotal > 0 {
-				diskPercent := (diskUsed / diskTotal) * 100
-				metricsRecord.Set("disk_usage_percent", diskPercent)
-			}
-		}
-
-		// Load Average
-		if load1min, ok := toFloat64(metrics["load_avg_1min"]); ok {
-			metricsRecord.Set("load_avg_1min", load1min)
-		}
-		if load5min, ok := toFloat64(metrics["load_avg_5min"]); ok {
-			metricsRecord.Set("load_avg_5min", load5min)
-		}
-		if load15min, ok := toFloat64(metrics["load_avg_15min"]); ok {
-			metricsRecord.Set("load_avg_15min", load15min)
-		}
-
-		// Filesystems - store as JSON array (TextField requires JSON string)
-		if filesystemsList, ok := metrics["filesystems"].([]interface{}); ok {
-			filesystemsJSON, _ := json.Marshal(filesystemsList)
-			metricsRecord.Set("filesystems", string(filesystemsJSON))
-		} else if filesystemsList2, ok := metrics["filesystems"].([]map[string]interface{}); ok {
-			filesystemsJSON, _ := json.Marshal(filesystemsList2)
-			metricsRecord.Set("filesystems", string(filesystemsJSON))
-		}
-
-		// Distro Info
-		if distroType, ok := metrics["distro_type"].(string); ok {
-			metricsRecord.Set("distro_type", distroType)
-		}
-		if distroVersion, ok := metrics["distro_version"].(string); ok {
-			metricsRecord.Set("distro_version", distroVersion)
-		}
+	// Filesystems - store as JSON array (TextField requires JSON string)
+	if len(metrics.Filesystems) > 0 {
+		filesystemsJSON, _ := json.Marshal(metrics.Filesystems)
+		metricsRecord.Set("filesystems", string(filesystemsJSON))
 	}
 
 	metricsRecord.Set("recorded_at", time.Now())
@@ -405,13 +363,16 @@ func HandleListAgents(app core.App, c *core.RequestEvent) error {
 		result = append(result, types.AgentListItem{
 			ID:            agent.Id,
 			Hostname:      agent.GetString("hostname"),
-			Platform:      agent.GetString("platform"),
+			OSType:        agent.GetString("os_type"),
+			OSInfo:        agent.GetString("os_info"),
+			OSVersion:     agent.GetString("os_version"),
 			Version:       agent.GetString("version"),
 			Status:        types.AgentStatus(agent.GetString("status")),
 			Health:        health,
 			LastSeen:      lastSeenPtr,
 			Created:       agent.GetDateTime("created").Time(),
 			KernelVersion: agent.GetString("kernel_version"),
+			Arch:          agent.GetString("arch"),
 		})
 	}
 
@@ -494,10 +455,38 @@ func HandleAgentHealth(app core.App, c *core.RequestEvent) error {
 	metricsRecords, err := app.FindRecordsByFilter(metricsCollection, "agent_id = {:agentId}", "-recorded_at", 1, 0, map[string]any{"agentId": req.AgentID})
 	if err == nil && len(metricsRecords) > 0 {
 		metricsRecord := metricsRecords[0]
-		var metrics types.SystemMetrics
-		if err := json.Unmarshal([]byte(metricsRecord.GetString("metrics")), &metrics); err == nil {
-			latestMetrics = &metrics
+
+		// Reconstruct SystemMetrics from individual fields
+		metrics := types.SystemMetrics{
+			CPUPercent:       metricsRecord.GetFloat("cpu_percent"),
+			CPUCores:         metricsRecord.GetInt("cpu_cores"),
+			MemoryUsedGB:     metricsRecord.GetFloat("memory_used_gb"),
+			MemoryTotalGB:    metricsRecord.GetFloat("memory_total_gb"),
+			MemoryPercent:    metricsRecord.GetFloat("memory_percent"),
+			DiskUsedGB:       metricsRecord.GetFloat("disk_used_gb"),
+			DiskTotalGB:      metricsRecord.GetFloat("disk_total_gb"),
+			DiskUsagePercent: metricsRecord.GetFloat("disk_usage_percent"),
+			NetworkStats: types.NetworkStats{
+				InGB:  metricsRecord.GetFloat("network_in_gb"),
+				OutGB: metricsRecord.GetFloat("network_out_gb"),
+			},
+			LoadAverage: types.LoadAverage{
+				OneMin:     metricsRecord.GetFloat("load_avg_1min"),
+				FiveMin:    metricsRecord.GetFloat("load_avg_5min"),
+				FifteenMin: metricsRecord.GetFloat("load_avg_15min"),
+			},
 		}
+
+		// Parse filesystems JSON if present
+		filesystemsJSON := metricsRecord.GetString("filesystems")
+		if filesystemsJSON != "" {
+			var filesystems []types.FilesystemStats
+			if err := json.Unmarshal([]byte(filesystemsJSON), &filesystems); err == nil {
+				metrics.Filesystems = filesystems
+			}
+		}
+
+		latestMetrics = &metrics
 	}
 
 	return c.JSON(http.StatusOK, types.HealthResponse{

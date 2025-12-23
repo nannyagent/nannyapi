@@ -55,7 +55,7 @@ func TestDeviceCodeGeneration(t *testing.T) {
 		t.Fatalf("Failed to create device code: %v", err)
 	}
 
-	t.Log("✅ Device code created successfully")
+	t.Log("Device code created successfully")
 
 	// Verify it was saved
 	records, err := app.FindRecordsByFilter(collection, "device_code = {:code}", "", 1, 0, map[string]any{"code": "test-device-123"})
@@ -74,7 +74,7 @@ func TestDeviceCodeGeneration(t *testing.T) {
 		t.Error("Device code should not be consumed")
 	}
 
-	t.Log("✅ Device code stored correctly with expected values")
+	t.Log("Device code stored correctly with expected values")
 }
 
 // TestAgentRegistration tests agent creation flow
@@ -94,7 +94,7 @@ func TestAgentRegistration(t *testing.T) {
 	if err := app.Save(userRecord); err != nil {
 		t.Fatalf("Failed to create user: %v", err)
 	}
-	t.Logf("✅ Created user: %s", userRecord.Id)
+	t.Logf("Created user: %s", userRecord.Id)
 
 	// Step 2: Create and authorize device code
 	deviceCodesCollection, err := app.FindCollectionByNameOrId("device_codes")
@@ -110,7 +110,7 @@ func TestAgentRegistration(t *testing.T) {
 	deviceCode.Set("consumed", false)
 	deviceCode.Set("expires_at", time.Now().Add(10*time.Minute))
 	app.Save(deviceCode)
-	t.Log("✅ Device code authorized")
+	t.Log("Device code authorized")
 
 	// Step 3: Create agent
 	agentCollection, err := app.FindCollectionByNameOrId("agents")
@@ -121,8 +121,11 @@ func TestAgentRegistration(t *testing.T) {
 	agentRecord := core.NewRecord(agentCollection)
 	agentRecord.Set("user_id", userRecord.Id)
 	agentRecord.Set("device_code_id", deviceCode.Id)
+	agentRecord.Set("device_user_code", "TESTCODE")
 	agentRecord.Set("hostname", "test-agent")
-	agentRecord.Set("platform", "linux")
+	agentRecord.Set("os_type", "linux")
+	agentRecord.Set("os_info", "Ubuntu 22.04 LTS")
+	agentRecord.Set("os_version", "22.04")
 	agentRecord.Set("version", "1.0.0")
 	agentRecord.Set("status", string(types.AgentStatusActive))
 	agentRecord.Set("last_seen", time.Now())
@@ -139,11 +142,17 @@ func TestAgentRegistration(t *testing.T) {
 	if err := app.Save(agentRecord); err != nil {
 		t.Fatalf("Failed to create agent: %v", err)
 	}
-	t.Logf("✅ Agent created: %s", agentRecord.Id)
+	t.Logf("Agent created: %s", agentRecord.Id)
 
 	// Verify agent
 	if agentRecord.GetString("hostname") != "test-agent" {
 		t.Errorf("hostname: expected 'test-agent', got '%s'", agentRecord.GetString("hostname"))
+	}
+	if agentRecord.GetString("os_type") != "linux" {
+		t.Errorf("os_type: expected 'linux', got '%s'", agentRecord.GetString("os_type"))
+	}
+	if agentRecord.GetString("device_user_code") != "TESTCODE" {
+		t.Errorf("device_user_code: expected 'TESTCODE', got '%s'", agentRecord.GetString("device_user_code"))
 	}
 	if agentRecord.GetString("status") != string(types.AgentStatusActive) {
 		t.Errorf("status: expected 'active', got '%s'", agentRecord.GetString("status"))
@@ -151,7 +160,7 @@ func TestAgentRegistration(t *testing.T) {
 	if agentRecord.GetString("user_id") != userRecord.Id {
 		t.Error("Agent not linked to user")
 	}
-	t.Log("✅ Agent correctly linked to user")
+	t.Log("Agent correctly linked to user")
 
 	// Mark device code as consumed
 	deviceCode.Set("consumed", true)
@@ -166,7 +175,7 @@ func TestAgentRegistration(t *testing.T) {
 	if deviceCode.GetString("agent_id") != agentRecord.Id {
 		t.Error("Device code not linked to agent")
 	}
-	t.Log("✅ Device code marked as consumed and linked to agent")
+	t.Log("Device code marked as consumed and linked to agent")
 }
 
 // TestAgentMetricsStorage tests metrics ingestion with GB/Gbps units
@@ -206,7 +215,8 @@ func TestAgentMetricsStorage(t *testing.T) {
 	agentRecord.Set("user_id", userRecord.Id)
 	agentRecord.Set("device_code_id", deviceCode.Id)
 	agentRecord.Set("hostname", "metrics-agent")
-	agentRecord.Set("platform", "linux")
+	agentRecord.Set("os_type", "linux")
+	agentRecord.Set("arch", "amd64")
 	agentRecord.Set("version", "1.0.0")
 	agentRecord.Set("status", string(types.AgentStatusActive))
 	agentRecord.Set("last_seen", time.Now())
@@ -215,7 +225,7 @@ func TestAgentMetricsStorage(t *testing.T) {
 	if err := app.Save(agentRecord); err != nil {
 		t.Fatalf("Failed to create agent: %v", err)
 	}
-	t.Logf("✅ Created agent: %s", agentRecord.Id)
+	t.Logf("Created agent: %s", agentRecord.Id)
 
 	// Create metrics
 	metricsCollection, _ := app.FindCollectionByNameOrId("agent_metrics")
@@ -230,8 +240,8 @@ func TestAgentMetricsStorage(t *testing.T) {
 		DiskUsedGB:    250.5,
 		DiskTotalGB:   500.0,
 		NetworkStats: types.NetworkStats{
-			InGbps:  1.024,
-			OutGbps: 0.512,
+			InGB:  1.024,
+			OutGB: 0.512,
 		},
 	}
 
@@ -243,13 +253,13 @@ func TestAgentMetricsStorage(t *testing.T) {
 	metricsRecord.Set("memory_total_gb", metrics.MemoryTotalGB)
 	metricsRecord.Set("disk_used_gb", metrics.DiskUsedGB)
 	metricsRecord.Set("disk_total_gb", metrics.DiskTotalGB)
-	metricsRecord.Set("network_in_gbps", metrics.NetworkStats.InGbps)
-	metricsRecord.Set("network_out_gbps", metrics.NetworkStats.OutGbps)
+	metricsRecord.Set("network_in_gb", metrics.NetworkStats.InGB)
+	metricsRecord.Set("network_out_gb", metrics.NetworkStats.OutGB)
 	metricsRecord.Set("recorded_at", time.Now())
 	if err := app.Save(metricsRecord); err != nil {
 		t.Fatalf("Failed to save metrics: %v", err)
 	}
-	t.Log("✅ Metrics saved")
+	t.Log("Metrics saved")
 
 	// Verify metrics
 	records, err := app.FindRecordsByFilter(metricsCollection, "agent_id = {:agentId}", "", 1, 0, map[string]any{"agentId": agentRecord.Id})
@@ -275,18 +285,18 @@ func TestAgentMetricsStorage(t *testing.T) {
 	if savedRecord.GetFloat("disk_total_gb") != 500.0 {
 		t.Errorf("DiskTotalGB: expected 500.0, got %.1f", savedRecord.GetFloat("disk_total_gb"))
 	}
-	if savedRecord.GetFloat("network_in_gbps") != 1.024 {
-		t.Errorf("InGbps: expected 1.024, got %.3f", savedRecord.GetFloat("network_in_gbps"))
+	if savedRecord.GetFloat("network_in_gb") != 1.024 {
+		t.Errorf("InGB: expected 1.024, got %.3f", savedRecord.GetFloat("network_in_gb"))
 	}
-	if savedRecord.GetFloat("network_out_gbps") != 0.512 {
-		t.Errorf("OutGbps: expected 0.512, got %.3f", savedRecord.GetFloat("network_out_gbps"))
+	if savedRecord.GetFloat("network_out_gb") != 0.512 {
+		t.Errorf("OutGB: expected 0.512, got %.3f", savedRecord.GetFloat("network_out_gb"))
 	}
-	t.Log("✅ All metrics stored correctly with GB/Gbps units")
+	t.Log("All metrics stored correctly with GB/Gbps units")
 
 	// Update agent last_seen
 	agentRecord.Set("last_seen", time.Now())
 	app.Save(agentRecord)
-	t.Log("✅ Agent last_seen updated")
+	t.Log("Agent last_seen updated")
 }
 
 // TestExpiredDeviceCodeValidation tests expired code rejection
@@ -307,14 +317,14 @@ func TestExpiredDeviceCodeValidation(t *testing.T) {
 	record.Set("consumed", false)
 	record.Set("expires_at", time.Now().Add(-10*time.Minute))
 	app.Save(record)
-	t.Log("✅ Created expired device code")
+	t.Log("Created expired device code")
 
 	// Verify it's in the past
 	expiresAt := record.GetDateTime("expires_at").Time()
 	if time.Now().Before(expiresAt) {
 		t.Error("Code should be expired")
 	}
-	t.Log("✅ Code expiry is in the past")
+	t.Log("Code expiry is in the past")
 }
 
 // TestConsumedDeviceCodeValidation tests consumed code rejection
@@ -336,7 +346,7 @@ func TestConsumedDeviceCodeValidation(t *testing.T) {
 	record.Set("agent_id", "some-agent-id")
 	record.Set("expires_at", time.Now().Add(10*time.Minute))
 	app.Save(record)
-	t.Log("✅ Created consumed device code")
+	t.Log("Created consumed device code")
 
 	// Verify it's consumed
 	if !record.GetBool("consumed") {
@@ -345,7 +355,7 @@ func TestConsumedDeviceCodeValidation(t *testing.T) {
 	if record.GetString("agent_id") == "" {
 		t.Error("Consumed code should have agent_id")
 	}
-	t.Log("✅ Code correctly marked as consumed with agent reference")
+	t.Log("Code correctly marked as consumed with agent reference")
 }
 
 // TestCleanupExpiredCodes tests the cleanup function
@@ -379,11 +389,11 @@ func TestCleanupExpiredCodes(t *testing.T) {
 	}
 	t.Logf("Valid code created: %s, expires: %v, consumed: %v", validCode.Id, validCode.GetDateTime("expires_at"), validCode.GetBool("consumed"))
 
-	t.Log("✅ Created expired and valid codes")
+	t.Log("Created expired and valid codes")
 
 	// Run cleanup
 	agents.CleanupExpiredDeviceCodes(app)
-	t.Log("✅ Cleanup executed")
+	t.Log("Cleanup executed")
 
 	// Wait a moment for cleanup to complete
 	time.Sleep(100 * time.Millisecond)
@@ -391,9 +401,9 @@ func TestCleanupExpiredCodes(t *testing.T) {
 	// Verify expired code is deleted
 	expiredRecords, _ := app.FindRecordsByFilter(collection, "device_code = {:code}", "", 1, 0, map[string]any{"code": expiredCode.GetString("device_code")})
 	if len(expiredRecords) > 0 {
-		t.Logf("⚠️ Expired code not deleted immediately (cleanup is async)")
+		t.Logf("Expired code not deleted immediately (cleanup is async)")
 	} else {
-		t.Log("✅ Expired code deleted")
+		t.Log("Expired code deleted")
 	}
 
 	// Verify valid code still exists
@@ -401,7 +411,7 @@ func TestCleanupExpiredCodes(t *testing.T) {
 	if len(validRecords) == 0 {
 		t.Error("Valid code should not be deleted")
 	} else {
-		t.Log("✅ Valid code preserved")
+		t.Log("Valid code preserved")
 	}
 }
 
@@ -451,7 +461,7 @@ func TestAgentHealthCalculation(t *testing.T) {
 			if health != tc.wantHealth {
 				t.Errorf("expected health '%s', got '%s'", tc.wantHealth, health)
 			} else {
-				t.Logf("✅ %s: correctly shows '%s' health", tc.name, health)
+				t.Logf("%s: correctly shows '%s' health", tc.name, health)
 			}
 		})
 	}
@@ -472,7 +482,7 @@ func TestTokenHashVerification(t *testing.T) {
 	if tokenHash != tokenHash2 {
 		t.Error("Token hashing should be deterministic")
 	}
-	t.Logf("✅ Token hash: %s", tokenHash)
+	t.Logf("Token hash: %s", tokenHash)
 
 	// Verify different tokens produce different hashes
 	differentToken := "different-token"
@@ -482,7 +492,7 @@ func TestTokenHashVerification(t *testing.T) {
 	if tokenHash == tokenHash3 {
 		t.Error("Different tokens should produce different hashes")
 	}
-	t.Log("✅ Token hashing works correctly")
+	t.Log("Token hashing works correctly")
 }
 
 // TestAgentStatusValidation tests agent status values
@@ -547,7 +557,7 @@ func TestAgentStatusValidation(t *testing.T) {
 			if agent.GetString("status") != string(tt.status) {
 				t.Errorf("Status: expected '%s', got '%s'", tt.status, agent.GetString("status"))
 			} else {
-				t.Logf("✅ %s created successfully", tt.description)
+				t.Logf(" %s created successfully", tt.description)
 			}
 		})
 	}

@@ -13,9 +13,9 @@ go build
 echo "Loading environment variables..."
 if [ -f .env ]; then
   export $(cat .env | grep -v '^#' | xargs)
-  echo "✅ Loaded environment variables from .env"
+  echo "Loaded environment variables from .env"
 else
-  echo "⚠️  No .env file found"
+  echo "No .env file found"
 fi
 
 echo "Running migrations with OAuth credentials..."
@@ -24,6 +24,6 @@ echo "Running migrations with OAuth credentials..."
 echo "Creating default admin..."
 ./nannyapi superuser upsert admin@nannyapi.local AdminPass-123 --dir=./pb_data
 
-echo "✅ Setup complete. Admin: admin@nannyapi.local / AdminPass-123"
-echo "🚀 Starting server..."
+echo "Setup complete. Admin: admin@nannyapi.local / AdminPass-123"
+echo "Starting server..."
 ./nannyapi serve --dir=./pb_data --http="0.0.0.0:8090"

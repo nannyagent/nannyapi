@@ -14,6 +14,21 @@ import (
 )
 
 func setupPatchPrerequisites(app core.App, t *testing.T, agentID string) {
+	// Update Agent with OS info
+	agentsCollection, err := app.FindCollectionByNameOrId("agents")
+	if err != nil {
+		t.Fatalf("Failed to find agents collection: %v", err)
+	}
+	agent, err := app.FindRecordById(agentsCollection, agentID)
+	if err != nil {
+		t.Fatalf("Failed to find agent: %v", err)
+	}
+	agent.Set("os_type", "linux")
+	agent.Set("os_version", "ubuntu-22.04")
+	if err := app.Save(agent); err != nil {
+		t.Fatalf("Failed to update agent OS info: %v", err)
+	}
+
 	// Create Script
 	scriptsCollection, err := app.FindCollectionByNameOrId("scripts")
 	if err != nil {
@@ -37,8 +52,6 @@ func setupPatchPrerequisites(app core.App, t *testing.T, agentID string) {
 	}
 	metric := core.NewRecord(metricsCollection)
 	metric.Set("agent_id", agentID)
-	metric.Set("distro_type", "linux")
-	metric.Set("distro_version", "ubuntu-22.04")
 	metric.Set("recorded_at", time.Now())
 	if err := app.Save(metric); err != nil {
 		t.Fatalf("Failed to save agent metrics: %v", err)

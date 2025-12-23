@@ -168,9 +168,9 @@ REVOKED_HEALTH=$(curl -s -X POST "${BASE_URL}/api/agent" \
 echo "Response:"
 echo "$REVOKED_HEALTH" | jq '.'
 if echo "$REVOKED_HEALTH" | grep -qi "revoked\|unauthorized"; then
-  echo -e "${GREEN}✓ Agent revocation is working!${NC}"
+  echo -e "${GREEN} Agent revocation is working!${NC}"
 else
-  echo -e "${RED}✗ Agent revocation not working${NC}"
+  echo -e "${RED} Agent revocation not working${NC}"
 fi
 echo ""
 

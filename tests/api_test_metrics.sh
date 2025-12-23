@@ -93,8 +93,8 @@ METRICS_RESPONSE=$(curl -s -X POST "${BASE_URL}/api/agent" \
 echo "Response:"
 echo "$METRICS_RESPONSE" | jq '.'
 if echo "$METRICS_RESPONSE" | grep -q "success"; then
-  echo -e "${GREEN}✓ Basic metrics ingested successfully${NC}"
-  
+  echo -e "${GREEN} Basic metrics ingested successfully${NC}"
+
   # VALIDATION: Check that metrics are actually stored with non-zero values
   sleep 1
   STORED_METRICS=$(curl -s "${BASE_URL}/api/collections/agent_metrics/records?perPage=1" \
@@ -102,11 +102,11 @@ if echo "$METRICS_RESPONSE" | grep -q "success"; then
   CPU_VAL=$(echo "$STORED_METRICS" | jq -r '.items[-1].cpu_percent // 0')
   MEM_VAL=$(echo "$STORED_METRICS" | jq -r '.items[-1].memory_used_gb // 0')
   DISK_VAL=$(echo "$STORED_METRICS" | jq -r '.items[-1].disk_used_gb // 0')
-  
+
   if [ "$CPU_VAL" != "0" ] && [ "$CPU_VAL" != "null" ] && [ "$MEM_VAL" != "0" ] && [ "$MEM_VAL" != "null" ]; then
-    echo -e "${GREEN}✓ VALIDATED: Metrics stored correctly (CPU=$CPU_VAL%, MEM=${MEM_VAL}GB, DISK=${DISK_VAL}GB)${NC}"
+    echo -e "${GREEN} VALIDATED: Metrics stored correctly (CPU=$CPU_VAL%, MEM=${MEM_VAL}GB, DISK=${DISK_VAL}GB)${NC}"
   else
-    echo -e "${RED}✗ VALIDATION FAILED: Metrics are ZERO! (CPU=$CPU_VAL, MEM=$MEM_VAL, DISK=$DISK_VAL)${NC}"
+    echo -e "${RED} VALIDATION FAILED: Metrics are ZERO! (CPU=$CPU_VAL, MEM=$MEM_VAL, DISK=$DISK_VAL)${NC}"
     exit 1
   fi
 fi
@@ -158,7 +158,7 @@ COMPREHENSIVE_RESPONSE=$(curl -s -X POST "${BASE_URL}/api/agent" \
 echo "Response:"
 echo "$COMPREHENSIVE_RESPONSE" | jq '.'
 if echo "$COMPREHENSIVE_RESPONSE" | grep -q "success"; then
-  echo -e "${GREEN}✓ Comprehensive metrics ingested successfully${NC}"
+  echo -e "${GREEN} Comprehensive metrics ingested successfully${NC}"
 fi
 echo ""
 
@@ -187,7 +187,7 @@ HIGH_LOAD_RESPONSE=$(curl -s -X POST "${BASE_URL}/api/agent" \
 echo "Response:"
 echo "$HIGH_LOAD_RESPONSE" | jq '.'
 if echo "$HIGH_LOAD_RESPONSE" | grep -q "success"; then
-  echo -e "${GREEN}✓ High-load metrics ingested successfully${NC}"
+  echo -e "${GREEN} High-load metrics ingested successfully${NC}"
 fi
 echo ""
 
@@ -212,7 +212,7 @@ MINIMAL_RESPONSE=$(curl -s -X POST "${BASE_URL}/api/agent" \
 echo "Response:"
 echo "$MINIMAL_RESPONSE" | jq '.'
 if echo "$MINIMAL_RESPONSE" | grep -q "success"; then
-  echo -e "${GREEN}✓ Minimal metrics ingested successfully${NC}"
+  echo -e "${GREEN} Minimal metrics ingested successfully${NC}"
 fi
 echo ""
 
@@ -231,9 +231,9 @@ INVALID_RESPONSE=$(curl -s -X POST "${BASE_URL}/api/agent" \
 echo "Response:"
 echo "$INVALID_RESPONSE" | jq '.'
 if echo "$INVALID_RESPONSE" | grep -qi "error\|invalid\|required"; then
-  echo -e "${GREEN}✓ Validation is working correctly${NC}"
+  echo -e "${GREEN} Validation is working correctly${NC}"
 else
-  echo -e "${RED}✗ Validation not working${NC}"
+  echo -e "${RED} Validation not working${NC}"
 fi
 echo ""
 
@@ -260,7 +260,7 @@ NETWORK_RESPONSE=$(curl -s -X POST "${BASE_URL}/api/agent" \
 echo "Response:"
 echo "$NETWORK_RESPONSE" | jq '.'
 if echo "$NETWORK_RESPONSE" | grep -q "success"; then
-  echo -e "${GREEN}✓ Network stats ingested successfully${NC}"
+  echo -e "${GREEN} Network stats ingested successfully${NC}"
 fi
 echo ""
 
@@ -269,7 +269,7 @@ echo -e "${YELLOW}7. Testing rapid metrics ingestion (5 samples)...${NC}"
 for i in {1..5}; do
   CPU=$((40 + RANDOM % 30))
   MEM=$((6 + RANDOM % 8))
-  
+
   curl -s -X POST "${BASE_URL}/api/agent" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer ${AGENT_TOKEN}" \
@@ -285,11 +285,11 @@ for i in {1..5}; do
         \"network_tx_gbps\": 0.3
       }
     }" > /dev/null
-  
+
   echo "  Sample $i: CPU=${CPU}%, MEM=${MEM}GB"
   sleep 0.5
 done
-echo -e "${GREEN}✓ Rapid ingestion completed${NC}"
+echo -e "${GREEN} Rapid ingestion completed${NC}"
 echo ""
 
 echo "================================"

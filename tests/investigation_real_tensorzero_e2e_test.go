@@ -51,7 +51,7 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		}
 
 		investigationID = investigation.ID
-		t.Logf("✓ Investigation created: %s", investigationID)
+		t.Logf("Investigation created: %s", investigationID)
 	})
 
 	// Step 2: Agent sends REAL diagnostic to TensorZero through proxy
@@ -78,17 +78,17 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		payloadMap["investigation_id"] = investigationID
 		bodyBytes, _ := json.Marshal(payloadMap)
 
-		t.Logf("✓ Diagnostic payload prepared: %d bytes", len(bodyBytes))
-		t.Logf("  investigation_id: %s", investigationID)
-		t.Logf("  model: tensorzero::function_name::diagnose_and_heal")
+		t.Logf("Diagnostic payload prepared: %d bytes", len(bodyBytes))
+		t.Logf("investigation_id: %s", investigationID)
+		t.Logf("model: tensorzero::function_name::diagnose_and_heal")
 
 		// Simulate API proxy call receiving this payload
 		// In real scenario: Agent POSTs to /api/investigations with this body
 		// API extracts investigation_id, validates auth, forwards to TensorZero
-		t.Logf("✓ Simulating: Agent POSTs to /api/investigations with investigation_id")
-		t.Logf("  API validates token and investigation ownership")
-		t.Logf("  API forwards to REAL TensorZero Core")
-		t.Logf("  This would take 5-30 seconds depending on AI processing time")
+		t.Logf("Simulating: Agent POSTs to /api/investigations with investigation_id")
+		t.Logf("API validates token and investigation ownership")
+		t.Logf("API forwards to REAL TensorZero Core")
+		t.Logf("This would take 5-30 seconds depending on AI processing time")
 	})
 
 	// Step 3: Simulate TensorZero response with episode_id
@@ -160,10 +160,10 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 			t.Fatalf("Status should be in_progress after episode_id, got %s", investigation.Status)
 		}
 
-		t.Logf("✓ TensorZero response parsed")
-		t.Logf("  episode_id: %s", tzResponse.EpisodeID)
-		t.Logf("  investigation status: %s", investigation.Status)
-		t.Logf("  API tracked episode_id in database")
+		t.Logf("TensorZero response parsed")
+		t.Logf("episode_id: %s", tzResponse.EpisodeID)
+		t.Logf("investigation status: %s", investigation.Status)
+		t.Logf("API tracked episode_id in database")
 	})
 
 	// Step 4: Agent sends follow-up with command outputs
@@ -187,10 +187,10 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		payloadMap["investigation_id"] = investigationID
 		bodyBytes, _ := json.Marshal(payloadMap)
 
-		t.Logf("✓ Follow-up payload prepared: %d bytes", len(bodyBytes))
-		t.Logf("  investigation_id: %s", investigationID)
-		t.Logf("  Simulating: Agent POSTs to /api/investigations with investigation_id")
-		t.Logf("  API forwards to TensorZero Core again (same episode)")
+		t.Logf("Follow-up payload prepared: %d bytes", len(bodyBytes))
+		t.Logf("investigation_id: %s", investigationID)
+		t.Logf("Simulating: Agent POSTs to /api/investigations with investigation_id")
+		t.Logf("API forwards to TensorZero Core again (same episode)")
 	})
 
 	// Step 5: Simulate final TensorZero response with resolution_plan
@@ -262,13 +262,13 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 			t.Fatal("Resolution plan not persisted")
 		}
 
-		t.Logf("✓ Resolution plan received and parsed")
-		t.Logf("  response_type: %s", resolutionResp.ResponseType)
-		t.Logf("  root_cause: %s", resolutionResp.RootCause)
-		t.Logf("  confidence: %s", resolutionResp.Confidence)
-		t.Logf("✓ Investigation marked COMPLETED")
-		t.Logf("  Status: %s", investigation.Status)
-		t.Logf("  Resolution steps stored: %d characters", len(investigation.ResolutionPlan))
+		t.Logf("Resolution plan received and parsed")
+		t.Logf("response_type: %s", resolutionResp.ResponseType)
+		t.Logf("root_cause: %s", resolutionResp.RootCause)
+		t.Logf("confidence: %s", resolutionResp.Confidence)
+		t.Logf("Investigation marked COMPLETED")
+		t.Logf("Status: %s", investigation.Status)
+		t.Logf("Resolution steps stored: %d characters", len(investigation.ResolutionPlan))
 	})
 }
 
@@ -306,7 +306,7 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		}
 
 		investigationID = investigation.ID
-		t.Logf("✓ Agent-initiated investigation created: %s", investigationID)
+		t.Logf("Agent-initiated investigation created: %s", investigationID)
 	})
 
 	// Step 2: Agent sends memory diagnostic to TensorZero
@@ -329,8 +329,8 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		payloadMap["investigation_id"] = investigationID
 		bodyBytes, _ := json.Marshal(payloadMap)
 
-		t.Logf("✓ Memory diagnostic prepared: %d bytes", len(bodyBytes))
-		t.Logf("  Simulating: Agent POSTs to /api/investigations proxy endpoint")
+		t.Logf("Memory diagnostic prepared: %d bytes", len(bodyBytes))
+		t.Logf("Simulating: Agent POSTs to /api/investigations proxy endpoint")
 	})
 
 	// Step 3: Simulate TensorZero episode response
@@ -384,7 +384,7 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 			t.Fatalf("Episode ID not tracked")
 		}
 
-		t.Logf("✓ Episode tracked: %s", tzResponse.EpisodeID)
+		t.Logf("Episode tracked: %s", tzResponse.EpisodeID)
 	})
 
 	// Step 4: Agent sends heap dump analysis
@@ -407,7 +407,7 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		payloadMap["investigation_id"] = investigationID
 		bodyBytes, _ := json.Marshal(payloadMap)
 
-		t.Logf("✓ Heap dump analysis prepared: %d bytes", len(bodyBytes))
+		t.Logf("Heap dump analysis prepared: %d bytes", len(bodyBytes))
 	})
 
 	// Step 5: Simulate resolution
@@ -467,9 +467,9 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 			t.Fatalf("Investigation should be completed")
 		}
 
-		t.Logf("✓ Agent-initiated investigation COMPLETED")
-		t.Logf("  Root cause: Memory leak in cache management")
-		t.Logf("  Status: %s", investigation.Status)
-		t.Logf("  Episode ID: %s (links to TensorZero observability)", investigation.EpisodeID)
+		t.Logf("Agent-initiated investigation COMPLETED")
+		t.Logf("Root cause: Memory leak in cache management")
+		t.Logf("Status: %s", investigation.Status)
+		t.Logf("Episode ID: %s (links to TensorZero observability)", investigation.EpisodeID)
 	})
 }

@@ -111,13 +111,13 @@ METRICS_RESPONSE=$(curl -s -X POST "${BASE_URL}/api/agent" \
   }')
 
 if echo "$METRICS_RESPONSE" | grep -q "success"; then
-  echo -e "${GREEN}✓ Extended metrics ingested successfully${NC}"
-  
+  echo -e "${GREEN} Extended metrics ingested successfully${NC}"
+
   # VALIDATION: Retrieve and verify the stored metrics
   sleep 1
   STORED_METRICS=$(curl -s "${BASE_URL}/api/collections/agent_metrics/records?perPage=1" \
     -H "Authorization: Bearer ${USER_TOKEN}")
-  
+
   CPU_CORES=$(echo "$STORED_METRICS" | jq -r '.items[-1].cpu_cores // 0')
   MEM_PERCENT=$(echo "$STORED_METRICS" | jq -r '.items[-1].memory_percent // 0')
   DISK_PERCENT=$(echo "$STORED_METRICS" | jq -r '.items[-1].disk_usage_percent // 0')
@@ -125,60 +125,60 @@ if echo "$METRICS_RESPONSE" | grep -q "success"; then
   LOAD_5M=$(echo "$STORED_METRICS" | jq -r '.items[-1].load_avg_5min // 0')
   LOAD_15M=$(echo "$STORED_METRICS" | jq -r '.items[-1].load_avg_15min // 0')
   FILESYSTEMS=$(echo "$STORED_METRICS" | jq -r '.items[-1].filesystems // empty')
-  
+
   echo ""
   echo "Verification Results:"
-  
+
   if [ "$CPU_CORES" == "16" ]; then
-    echo -e "${GREEN}✓${NC} CPU Cores: $CPU_CORES"
+    echo -e "${GREEN}${NC} CPU Cores: $CPU_CORES"
   else
-    echo -e "${RED}✗${NC} CPU Cores: expected 16, got $CPU_CORES"
+    echo -e "${RED}${NC} CPU Cores: expected 16, got $CPU_CORES"
   fi
-  
+
   if [ "$MEM_PERCENT" != "0" ] && [ "$MEM_PERCENT" != "null" ]; then
-    echo -e "${GREEN}✓${NC} Memory Percent: $MEM_PERCENT% (computed from 12.5GB/32GB)"
+    echo -e "${GREEN}${NC} Memory Percent: $MEM_PERCENT% (computed from 12.5GB/32GB)"
   else
-    echo -e "${RED}✗${NC} Memory Percent: $MEM_PERCENT (expected ~39.06%)"
+    echo -e "${RED}${NC} Memory Percent: $MEM_PERCENT (expected ~39.06%)"
   fi
-  
+
   if [ "$DISK_PERCENT" == "45" ]; then
-    echo -e "${GREEN}✓${NC} Disk Usage Percent: $DISK_PERCENT% (computed from 450GB/1000GB)"
+    echo -e "${GREEN}${NC} Disk Usage Percent: $DISK_PERCENT% (computed from 450GB/1000GB)"
   else
-    echo -e "${RED}✗${NC} Disk Usage Percent: expected 45, got $DISK_PERCENT"
+    echo -e "${RED}${NC} Disk Usage Percent: expected 45, got $DISK_PERCENT"
   fi
-  
+
   if [ "$LOAD_1M" == "4.5" ]; then
-    echo -e "${GREEN}✓${NC} Load Average 1min: $LOAD_1M"
+    echo -e "${GREEN}${NC} Load Average 1min: $LOAD_1M"
   else
-    echo -e "${RED}✗${NC} Load Average 1min: expected 4.5, got $LOAD_1M"
+    echo -e "${RED}${NC} Load Average 1min: expected 4.5, got $LOAD_1M"
   fi
-  
+
   if [ "$LOAD_5M" == "3.75" ]; then
-    echo -e "${GREEN}✓${NC} Load Average 5min: $LOAD_5M"
+    echo -e "${GREEN}${NC} Load Average 5min: $LOAD_5M"
   else
-    echo -e "${RED}✗${NC} Load Average 5min: expected 3.75, got $LOAD_5M"
+    echo -e "${RED}${NC} Load Average 5min: expected 3.75, got $LOAD_5M"
   fi
-  
+
   if [ "$LOAD_15M" == "3.2" ]; then
-    echo -e "${GREEN}✓${NC} Load Average 15min: $LOAD_15M"
+    echo -e "${GREEN}${NC} Load Average 15min: $LOAD_15M"
   else
-    echo -e "${RED}✗${NC} Load Average 15min: expected 3.2, got $LOAD_15M"
+    echo -e "${RED}${NC} Load Average 15min: expected 3.2, got $LOAD_15M"
   fi
-  
+
   if [ ! -z "$FILESYSTEMS" ] && [ "$FILESYSTEMS" != "null" ]; then
     FS_COUNT=$(echo "$FILESYSTEMS" | jq 'length' 2>/dev/null)
-    echo -e "${GREEN}✓${NC} Filesystems: $FS_COUNT entries stored as JSON"
+    echo -e "${GREEN}${NC} Filesystems: $FS_COUNT entries stored as JSON"
   else
-    echo -e "${RED}✗${NC} Filesystems: not stored or empty"
+    echo -e "${RED}${NC} Filesystems: not stored or empty"
   fi
-  
+
 else
-  echo -e "${RED}✗ Failed to ingest extended metrics${NC}"
+  echo -e "${RED} Failed to ingest extended metrics${NC}"
   echo "$METRICS_RESPONSE" | jq '.'
   exit 1
 fi
 
 echo ""
 echo "================================"
-echo -e "${GREEN}✓ Extended metrics test passed!${NC}"
+echo -e "${GREEN} Extended metrics test passed!${NC}"
 echo "================================"

@@ -40,18 +40,9 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 		return nil, fmt.Errorf("unauthorized: agent does not belong to user")
 	}
 
-	// Get agent metrics to determine OS info
-	metricsCollection, err := app.FindCollectionByNameOrId("agent_metrics")
-	if err != nil {
-		return nil, fmt.Errorf("agent_metrics collection not found: %w", err)
-	}
-
-	metricsRecords, err := app.FindRecordsByFilter(metricsCollection, "agent_id = {:agentId}", "-recorded_at", 1, 0, map[string]interface{}{"agentId": req.AgentID})
-	var distroType, distroVersion string
-	if err == nil && len(metricsRecords) > 0 {
-		distroType = metricsRecords[0].GetString("distro_type")
-		distroVersion = metricsRecords[0].GetString("distro_version")
-	}
+	// Get agent OS info
+	osType := agentRecord.GetString("os_type")
+	osVersion := agentRecord.GetString("os_version")
 
 	// Find appropriate script for this OS
 	scriptsCollection, err := app.FindCollectionByNameOrId("scripts")
@@ -65,10 +56,10 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 	var scriptRecord *core.Record
 
 	// 1. Try exact match (os_type + os_version)
-	if distroType != "" && distroVersion != "" {
+	if osType != "" && osVersion != "" {
 		records, err := app.FindRecordsByFilter(scriptsCollection, "os_type = {:osType} && os_version = {:osVer}", "", 1, 0, map[string]interface{}{
-			"osType": distroType,
-			"osVer":  distroVersion,
+			"osType": osType,
+			"osVer":  osVersion,
 		})
 		if err == nil && len(records) > 0 {
 			scriptRecord = records[0]
@@ -76,9 +67,9 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 	}
 
 	// 2. Try OS type match only (generic script for distro)
-	if scriptRecord == nil && distroType != "" {
+	if scriptRecord == nil && osType != "" {
 		records, err := app.FindRecordsByFilter(scriptsCollection, "os_type = {:osType} && os_version = ''", "", 1, 0, map[string]interface{}{
-			"osType": distroType,
+			"osType": osType,
 		})
 		if err == nil && len(records) > 0 {
 			scriptRecord = records[0]
@@ -94,7 +85,7 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 	}
 
 	if scriptRecord == nil {
-		return nil, fmt.Errorf("no compatible patch script found for agent OS: %s %s", distroType, distroVersion)
+		return nil, fmt.Errorf("no compatible patch script found for agent OS: %s %s", osType, osVersion)
 	}
 
 	scriptURL := fmt.Sprintf("/api/files/%s/%s/%s", scriptsCollection.Id, scriptRecord.Id, scriptRecord.GetString("file"))

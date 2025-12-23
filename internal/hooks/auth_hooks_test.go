@@ -25,7 +25,7 @@ func TestOnUserCreateHookValid(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error for valid password, got: %v", err)
 	} else {
-		t.Logf("✅ Valid password accepted")
+		t.Logf("Valid password accepted")
 	}
 }
 
@@ -47,7 +47,7 @@ func TestOnUserCreateHookInvalid(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error for invalid password, got nil")
 	} else {
-		t.Logf("✅ Invalid password rejected: %v", err)
+		t.Logf("Invalid password rejected: %v", err)
 	}
 }
 
@@ -84,6 +84,6 @@ func TestOnUserUpdateOAuthRestriction(t *testing.T) {
 	} else if err.Error() != "OAuth users cannot set passwords" {
 		t.Errorf("Expected OAuth error message, got: %v", err)
 	} else {
-		t.Logf("✅ OAuth restriction working: %v", err)
+		t.Logf("OAuth restriction working: %v", err)
 	}
 }

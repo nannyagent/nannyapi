@@ -42,20 +42,21 @@ type PatchOperation struct {
 type PatchRequest struct {
 	AgentID    string `json:"agent_id" validate:"required,uuid4"`
 	Mode       string `json:"mode" validate:"required,oneof=dry-run apply"`
-	ScriptURL  string `json:"script_url" validate:"required,url"`
+	ScriptURL  string `json:"script_url" validate:"omitempty"`  // Optional, resolved by server if empty
 	ScriptArgs string `json:"script_args" validate:"omitempty"` // Script arguments passed to execution
 }
 
 // PatchResponse returned when operation is created
 type PatchResponse struct {
-	ID        string      `json:"id"`
-	UserID    string      `json:"user_id"`
-	AgentID   string      `json:"agent_id"`
-	Mode      PatchMode   `json:"mode"`
-	Status    PatchStatus `json:"status"`
-	ScriptURL string      `json:"script_url"`
-	CreatedAt time.Time   `json:"created_at"`
-	UpdatedAt time.Time   `json:"updated_at"`
+	ID           string      `json:"id"`
+	UserID       string      `json:"user_id"`
+	AgentID      string      `json:"agent_id"`
+	Mode         PatchMode   `json:"mode"`
+	Status       PatchStatus `json:"status"`
+	ScriptURL    string      `json:"script_url"`
+	ScriptSHA256 string      `json:"script_sha256,omitempty"` // SHA256 of the script
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
 }
 
 // PackageUpdate represents a package that was updated/needs updating

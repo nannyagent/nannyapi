@@ -86,8 +86,6 @@ func init() {
 			Hidden:   true,
 		})
 
-		// Add fields needed for JWT generation (must have id which base collection provides)
-
 		agents.Fields.Add(&core.RelationField{
 			Name:          "user_id",
 			Required:      true,
@@ -198,12 +196,12 @@ func init() {
 		})
 
 		agentMetrics.Fields.Add(&core.NumberField{
-			Name: "network_in_gbps",
+			Name: "network_in_gb",
 			Min:  ptrFloat(0),
 		})
 
 		agentMetrics.Fields.Add(&core.NumberField{
-			Name: "network_out_gbps",
+			Name: "network_out_gb",
 			Min:  ptrFloat(0),
 		})
 

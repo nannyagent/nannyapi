@@ -92,6 +92,24 @@ func init() {
 			Required: false,
 		})
 
+		// File fields for stdout/stderr
+		patchOps.Fields.Add(&core.FileField{
+			Name:      "stdout_file",
+			Required:  false,
+			MaxSelect: 1,
+			MaxSize:   1024 * 1024 * 10, // 10MB
+		})
+		patchOps.Fields.Add(&core.FileField{
+			Name:      "stderr_file",
+			Required:  false,
+			MaxSelect: 1,
+			MaxSize:   1024 * 1024 * 10, // 10MB
+		})
+		patchOps.Fields.Add(&core.NumberField{
+			Name:     "exit_code",
+			Required: false,
+		})
+
 		// Set API rules
 		patchOps.ListRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id")
 		patchOps.ViewRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id")
@@ -101,6 +119,57 @@ func init() {
 
 		if err := app.Save(patchOps); err != nil {
 			return err
+		}
+
+		// Create scripts collection
+		scripts := core.NewBaseCollection("scripts")
+		scripts.Fields.Add(&core.TextField{
+			Name:     "name",
+			Required: true,
+		})
+		scripts.Fields.Add(&core.TextField{
+			Name:     "description",
+			Required: false,
+		})
+		scripts.Fields.Add(&core.TextField{
+			Name:     "os_type",
+			Required: true,
+		})
+		scripts.Fields.Add(&core.TextField{
+			Name:     "os_version",
+			Required: false,
+		})
+		scripts.Fields.Add(&core.FileField{
+			Name:      "file",
+			Required:  true,
+			MaxSelect: 1,
+			MaxSize:   1024 * 1024 * 10, // 10MB
+		})
+		scripts.Fields.Add(&core.TextField{
+			Name:     "sha256",
+			Required: true,
+		})
+
+		// Set API rules for scripts (public read for agents)
+		scripts.ListRule = nil // Admin only list
+		scripts.ViewRule = nil // Admin only view
+
+		if err := app.Save(scripts); err != nil {
+			return err
+		}
+
+		// Update agent_metrics collection with distro info
+		metrics, err := app.FindCollectionByNameOrId("agent_metrics")
+		if err == nil {
+			metrics.Fields.Add(&core.TextField{
+				Name:     "distro_type",
+				Required: false,
+			})
+			metrics.Fields.Add(&core.TextField{
+				Name:     "distro_version",
+				Required: false,
+			})
+			app.Save(metrics)
 		}
 
 		// Create package_updates collection to track packages affected by patches
@@ -171,7 +240,7 @@ func init() {
 		return nil
 	}, func(app core.App) error {
 		// Rollback: delete collections in reverse order
-		collections := []string{"package_updates", "patch_operations"}
+		collections := []string{"package_updates", "scripts", "patch_operations"}
 		for _, name := range collections {
 			collection, _ := app.FindCollectionByNameOrId(name)
 			if collection != nil {

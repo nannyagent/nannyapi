@@ -374,7 +374,10 @@ func TestCleanupExpiredCodes(t *testing.T) {
 	validCode.Set("authorized", false)
 	validCode.Set("consumed", false)
 	validCode.Set("expires_at", time.Now().Add(5*time.Minute))
-	app.Save(validCode)
+	if err := app.Save(validCode); err != nil {
+		t.Fatalf("Failed to save valid code: %v", err)
+	}
+	t.Logf("Valid code created: %s, expires: %v, consumed: %v", validCode.Id, validCode.GetDateTime("expires_at"), validCode.GetBool("consumed"))
 
 	t.Log("✅ Created expired and valid codes")
 

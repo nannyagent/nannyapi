@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/big"
 	"net/http"
@@ -241,7 +242,11 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 	}
 
 	// Get authenticated agent from context (set by middleware)
-	agentRecord := c.Get("authRecord").(*core.Record)
+	authRecord := c.Get("authRecord")
+	if authRecord == nil {
+		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authentication required"})
+	}
+	agentRecord := authRecord.(*core.Record)
 
 	if agentRecord.GetString("status") == string(types.AgentStatusRevoked) {
 		return c.JSON(http.StatusForbidden, types.ErrorResponse{Error: "agent revoked"})
@@ -254,7 +259,11 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 	}
 
 	// Store metrics
-	metricsCollection, _ := app.FindCollectionByNameOrId("agent_metrics")
+	metricsCollection, err := app.FindCollectionByNameOrId("agent_metrics")
+	if err != nil {
+		fmt.Println("Error finding agent_metrics:", err)
+		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "metrics collection not found"})
+	}
 
 	// Try to find existing metrics for this agent
 	records, err := app.FindRecordsByFilter(metricsCollection, "agent_id = {:agentId}", "", 1, 0, map[string]any{"agentId": agentRecord.Id})
@@ -350,22 +359,19 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 			metricsRecord.Set("filesystems", string(filesystemsJSON))
 		}
 
-		// Network - support both bytes and gbps
-		if netRx, ok := toFloat64(metrics["network_rx_bytes"]); ok {
-			metricsRecord.Set("network_in_gbps", netRx/1e9)
-		} else if netRx, ok := toFloat64(metrics["network_rx_gbps"]); ok {
-			metricsRecord.Set("network_in_gbps", netRx)
+		// Distro Info
+		if distroType, ok := metrics["distro_type"].(string); ok {
+			metricsRecord.Set("distro_type", distroType)
 		}
-		if netTx, ok := toFloat64(metrics["network_tx_bytes"]); ok {
-			metricsRecord.Set("network_out_gbps", netTx/1e9)
-		} else if netTx, ok := toFloat64(metrics["network_tx_gbps"]); ok {
-			metricsRecord.Set("network_out_gbps", netTx)
+		if distroVersion, ok := metrics["distro_version"].(string); ok {
+			metricsRecord.Set("distro_version", distroVersion)
 		}
 	}
 
 	metricsRecord.Set("recorded_at", time.Now())
 
 	if err := app.Save(metricsRecord); err != nil {
+		fmt.Println("Error saving metrics:", err)
 		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "failed to save metrics"})
 	}
 
@@ -533,7 +539,7 @@ func CleanupExpiredDeviceCodes(app core.App) {
 	oneDayAgo := time.Now().Add(-24 * time.Hour)
 	filter := "expires_at < {:now} || (consumed = true)"
 	records, err := app.FindRecordsByFilter(collection, filter, "", 100, 0, map[string]any{
-		"now":       time.Now(),
+		"now":       time.Now().UTC(),
 		"oneDayAgo": oneDayAgo,
 	})
 	if err != nil {

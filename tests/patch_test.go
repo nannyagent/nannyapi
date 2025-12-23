@@ -2,13 +2,48 @@ package tests
 
 import (
 	"testing"
+	"time"
 
 	"github.com/nannyagent/nannyapi/internal/hooks"
 	"github.com/nannyagent/nannyapi/internal/patches"
 	"github.com/nannyagent/nannyapi/internal/types"
 	_ "github.com/nannyagent/nannyapi/pb_migrations"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
+
+func setupPatchPrerequisites(app core.App, t *testing.T, agentID string) {
+	// Create Script
+	scriptsCollection, err := app.FindCollectionByNameOrId("scripts")
+	if err != nil {
+		t.Fatalf("Failed to find scripts collection: %v", err)
+	}
+	script := core.NewRecord(scriptsCollection)
+	script.Set("name", "update-packages")
+	script.Set("os_type", "linux")
+	script.Set("os_version", "ubuntu-22.04")
+	script.Set("sha256", "fake-sha256-hash")
+	f, _ := filesystem.NewFileFromBytes([]byte("#!/bin/bash\necho 'updating...'"), "script.sh")
+	script.Set("file", f)
+	if err := app.Save(script); err != nil {
+		t.Fatalf("Failed to save script: %v", err)
+	}
+
+	// Create Agent Metrics
+	metricsCollection, err := app.FindCollectionByNameOrId("agent_metrics")
+	if err != nil {
+		t.Fatalf("Failed to find agent_metrics collection: %v", err)
+	}
+	metric := core.NewRecord(metricsCollection)
+	metric.Set("agent_id", agentID)
+	metric.Set("distro_type", "linux")
+	metric.Set("distro_version", "ubuntu-22.04")
+	metric.Set("recorded_at", time.Now())
+	if err := app.Save(metric); err != nil {
+		t.Fatalf("Failed to save agent metrics: %v", err)
+	}
+}
 
 // TestCreatePatchOperation tests patch operation creation
 func TestCreatePatchOperation(t *testing.T) {
@@ -33,6 +68,8 @@ func TestCreatePatchOperation(t *testing.T) {
 	agent := createTestAgent(app, t, userID, "test-hostname")
 	agentID := agent.Id
 
+	setupPatchPrerequisites(app, t, agentID)
+
 	tests := []struct {
 		name      string
 		userID    string
@@ -44,9 +81,8 @@ func TestCreatePatchOperation(t *testing.T) {
 			name:   "Create patch with dry-run mode",
 			userID: userID,
 			request: types.PatchRequest{
-				AgentID:   agentID,
-				Mode:      "dry-run",
-				ScriptURL: "https://example.com/scripts/update.sh",
+				AgentID: agentID,
+				Mode:    "dry-run",
 			},
 			expectErr: false,
 		},
@@ -54,9 +90,8 @@ func TestCreatePatchOperation(t *testing.T) {
 			name:   "Create patch with apply mode",
 			userID: userID,
 			request: types.PatchRequest{
-				AgentID:   agentID,
-				Mode:      "apply",
-				ScriptURL: "https://example.com/scripts/apply.sh",
+				AgentID: agentID,
+				Mode:    "apply",
 			},
 			expectErr: false,
 		},
@@ -64,9 +99,8 @@ func TestCreatePatchOperation(t *testing.T) {
 			name:   "Fail with invalid mode",
 			userID: userID,
 			request: types.PatchRequest{
-				AgentID:   agentID,
-				Mode:      "invalid",
-				ScriptURL: "https://example.com/scripts/test.sh",
+				AgentID: agentID,
+				Mode:    "invalid",
 			},
 			expectErr: true,
 		},
@@ -74,17 +108,7 @@ func TestCreatePatchOperation(t *testing.T) {
 			name:   "Fail with missing agent_id",
 			userID: userID,
 			request: types.PatchRequest{
-				Mode:      "dry-run",
-				ScriptURL: "https://example.com/scripts/test.sh",
-			},
-			expectErr: true,
-		},
-		{
-			name:   "Fail with missing script_url",
-			userID: userID,
-			request: types.PatchRequest{
-				AgentID: agentID,
-				Mode:    "apply",
+				Mode: "dry-run",
 			},
 			expectErr: true,
 		},
@@ -143,12 +167,13 @@ func TestGetPatchOperations(t *testing.T) {
 	agent := createTestAgent(app, t, userID, "test-hostname")
 	agentID := agent.Id
 
+	setupPatchPrerequisites(app, t, agentID)
+
 	// Create multiple patch operations
 	for i := 0; i < 2; i++ {
 		_, err := patches.CreatePatchOperation(app, userID, types.PatchRequest{
-			AgentID:   agentID,
-			Mode:      "dry-run",
-			ScriptURL: "https://example.com/scripts/update.sh",
+			AgentID: agentID,
+			Mode:    "dry-run",
 		})
 		if err != nil {
 			t.Fatalf("Failed to create patch operation: %v", err)
@@ -189,11 +214,12 @@ func TestGetPatchOperation(t *testing.T) {
 	agent := createTestAgent(app, t, userID, "test-hostname")
 	agentID := agent.Id
 
+	setupPatchPrerequisites(app, t, agentID)
+
 	// Create patch operation
 	created, err := patches.CreatePatchOperation(app, userID, types.PatchRequest{
-		AgentID:   agentID,
-		Mode:      "apply",
-		ScriptURL: "https://example.com/scripts/update.sh",
+		AgentID: agentID,
+		Mode:    "apply",
 	})
 	if err != nil {
 		t.Fatalf("Failed to create patch operation: %v", err)
@@ -240,11 +266,12 @@ func TestUpdatePatchStatus(t *testing.T) {
 	agent := createTestAgent(app, t, userID, "test-hostname")
 	agentID := agent.Id
 
+	setupPatchPrerequisites(app, t, agentID)
+
 	// Create patch operation
 	created, err := patches.CreatePatchOperation(app, userID, types.PatchRequest{
-		AgentID:   agentID,
-		Mode:      "dry-run",
-		ScriptURL: "https://example.com/scripts/update.sh",
+		AgentID: agentID,
+		Mode:    "dry-run",
 	})
 	if err != nil {
 		t.Fatalf("Failed to create patch operation: %v", err)
@@ -306,11 +333,12 @@ func TestCreatePackageUpdate(t *testing.T) {
 	agent := createTestAgent(app, t, userID, "test-hostname")
 	agentID := agent.Id
 
+	setupPatchPrerequisites(app, t, agentID)
+
 	// Create patch operation
 	created, err := patches.CreatePatchOperation(app, userID, types.PatchRequest{
-		AgentID:   agentID,
-		Mode:      "apply",
-		ScriptURL: "https://example.com/scripts/update.sh",
+		AgentID: agentID,
+		Mode:    "apply",
 	})
 	if err != nil {
 		t.Fatalf("Failed to create patch operation: %v", err)

@@ -29,6 +29,15 @@ func RegisterPatchHooks(app core.App) {
 			return patches.HandlePatchOperations(app, c)
 		}))
 
+		// Agent endpoints
+		e.Router.POST("/api/patches/{id}/result", withAuth(func(c *core.RequestEvent) error {
+			return patches.HandlePatchResult(app, c)
+		}))
+
+		e.Router.GET("/api/scripts/{id}/validate", withAuth(func(c *core.RequestEvent) error {
+			return patches.HandleValidateScript(app, c)
+		}))
+
 		return e.Next()
 	})
 }

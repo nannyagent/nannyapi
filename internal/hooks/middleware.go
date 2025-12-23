@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -21,7 +22,10 @@ func LoadAuthContext(app core.App) func(next func(*core.RequestEvent) error) fun
 				token = token[7:]
 			}
 
-			record, _ := app.FindAuthRecordByToken(token, core.TokenTypeAuth)
+			record, err := app.FindAuthRecordByToken(token, core.TokenTypeAuth)
+			if err != nil {
+				fmt.Println("FindAuthRecordByToken error:", err)
+			}
 			if record != nil {
 				e.Set("authRecord", record)
 			}

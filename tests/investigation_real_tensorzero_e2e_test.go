@@ -45,7 +45,7 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 			Priority: "high",
 		}
 
-		investigation, err := investigations.CreateInvestigation(app, userID, req)
+		investigation, err := investigations.CreateInvestigation(app, userID, req, "user")
 		if err != nil {
 			t.Fatalf("Failed to create investigation: %v", err)
 		}
@@ -300,7 +300,7 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 			Priority: "critical",
 		}
 
-		investigation, err := investigations.CreateInvestigation(app, userID, req)
+		investigation, err := investigations.CreateInvestigation(app, userID, req, "agent")
 		if err != nil {
 			t.Fatalf("Failed to create investigation: %v", err)
 		}

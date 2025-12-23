@@ -97,7 +97,7 @@ func TestCreateInvestigation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			resp, err := investigations.CreateInvestigation(app, tc.userID, tc.request)
+			resp, err := investigations.CreateInvestigation(app, tc.userID, tc.request, "user")
 
 			if tc.expectErr {
 				if err == nil {
@@ -159,7 +159,7 @@ func TestGetInvestigations(t *testing.T) {
 			AgentID:  agentID,
 			Issue:    "Test issue " + string(rune(i)),
 			Priority: "medium",
-		})
+		}, "user")
 		if err != nil {
 			t.Fatalf("Failed to create investigation: %v", err)
 		}
@@ -178,6 +178,7 @@ func TestGetInvestigations(t *testing.T) {
 
 // TestGetInvestigation tests retrieving a single investigation
 func TestGetInvestigation(t *testing.T) {
+	LoadEnv(t)
 	app := setupInvestigationTestApp(t)
 	defer app.Cleanup()
 
@@ -192,7 +193,7 @@ func TestGetInvestigation(t *testing.T) {
 		AgentID:  agentID,
 		Issue:    "Test issue for retrieval",
 		Priority: "high",
-	})
+	}, "user")
 	if err != nil {
 		t.Fatalf("Failed to create investigation: %v", err)
 	}
@@ -220,6 +221,7 @@ func TestGetInvestigation(t *testing.T) {
 
 // TestUpdateInvestigationStatus tests updating investigation status
 func TestUpdateInvestigationStatus(t *testing.T) {
+	LoadEnv(t)
 	app := setupInvestigationTestApp(t)
 	defer app.Cleanup()
 
@@ -234,7 +236,7 @@ func TestUpdateInvestigationStatus(t *testing.T) {
 		AgentID:  agentID,
 		Issue:    "Test issue",
 		Priority: "high",
-	})
+	}, "user")
 	if err != nil {
 		t.Fatalf("Failed to create investigation: %v", err)
 	}
@@ -275,6 +277,7 @@ func TestUpdateInvestigationStatus(t *testing.T) {
 
 // TestSetEpisodeID tests setting episode ID for investigation
 func TestSetEpisodeID(t *testing.T) {
+	LoadEnv(t)
 	app := setupInvestigationTestApp(t)
 	defer app.Cleanup()
 
@@ -289,7 +292,7 @@ func TestSetEpisodeID(t *testing.T) {
 		AgentID:  agentID,
 		Issue:    "Test issue",
 		Priority: "high",
-	})
+	}, "user")
 	if err != nil {
 		t.Fatalf("Failed to create investigation: %v", err)
 	}

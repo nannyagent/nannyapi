@@ -72,11 +72,7 @@ func HandleAuthorize(app core.App, c *core.RequestEvent) error {
 	}
 
 	// Get authenticated user
-	authRecord := c.Get("authRecord")
-	if authRecord == nil {
-		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authentication required"})
-	}
-	user := authRecord.(*core.Record)
+	user := c.Get("authRecord").(*core.Record)
 
 	collection, _ := app.FindCollectionByNameOrId("device_codes")
 	records, err := app.FindRecordsByFilter(collection, "user_code = {:code}", "", 1, 0, map[string]any{"code": req.UserCode})
@@ -245,15 +241,7 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 	}
 
 	// Get authenticated agent from context (set by middleware)
-	authRecord := c.Get("authRecord")
-	if authRecord == nil {
-		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authentication required"})
-	}
-
-	agentRecord, ok := authRecord.(*core.Record)
-	if !ok || agentRecord.Collection().Name != "agents" {
-		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "invalid agent authentication"})
-	}
+	agentRecord := c.Get("authRecord").(*core.Record)
 
 	if agentRecord.GetString("status") == string(types.AgentStatusRevoked) {
 		return c.JSON(http.StatusForbidden, types.ErrorResponse{Error: "agent revoked"})
@@ -267,8 +255,17 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 
 	// Store metrics
 	metricsCollection, _ := app.FindCollectionByNameOrId("agent_metrics")
-	metricsRecord := core.NewRecord(metricsCollection)
-	metricsRecord.Set("agent_id", agentRecord.Id)
+
+	// Try to find existing metrics for this agent
+	records, err := app.FindRecordsByFilter(metricsCollection, "agent_id = {:agentId}", "", 1, 0, map[string]any{"agentId": agentRecord.Id})
+
+	var metricsRecord *core.Record
+	if err == nil && len(records) > 0 {
+		metricsRecord = records[0]
+	} else {
+		metricsRecord = core.NewRecord(metricsCollection)
+		metricsRecord.Set("agent_id", agentRecord.Id)
+	}
 
 	// Helper to convert interface{} to float64 - handles JSON number parsing
 	toFloat64 := func(v interface{}) (float64, bool) {
@@ -380,11 +377,7 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 
 // HandleListAgents - list user's agents
 func HandleListAgents(app core.App, c *core.RequestEvent) error {
-	authRecord := c.Get("authRecord")
-	if authRecord == nil {
-		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authentication required"})
-	}
-	user := authRecord.(*core.Record)
+	user := c.Get("authRecord").(*core.Record)
 
 	collection, _ := app.FindCollectionByNameOrId("agents")
 	records, err := app.FindRecordsByFilter(collection, "user_id = {:userId}", "", 100, 0, map[string]any{"userId": user.Id})
@@ -430,11 +423,7 @@ func HandleRevokeAgent(app core.App, c *core.RequestEvent) error {
 		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "agent_id required"})
 	}
 
-	authRecord := c.Get("authRecord")
-	if authRecord == nil {
-		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authentication required"})
-	}
-	user := authRecord.(*core.Record)
+	user := c.Get("authRecord").(*core.Record)
 
 	collection, _ := app.FindCollectionByNameOrId("agents")
 	agentRecord, err := app.FindRecordById(collection, req.AgentID)
@@ -471,11 +460,7 @@ func HandleAgentHealth(app core.App, c *core.RequestEvent) error {
 		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "agent_id required"})
 	}
 
-	authRecord := c.Get("authRecord")
-	if authRecord == nil {
-		return c.JSON(http.StatusUnauthorized, types.ErrorResponse{Error: "authentication required"})
-	}
-	user := authRecord.(*core.Record)
+	user := c.Get("authRecord").(*core.Record)
 
 	collection, _ := app.FindCollectionByNameOrId("agents")
 	agentRecord, err := app.FindRecordById(collection, req.AgentID)

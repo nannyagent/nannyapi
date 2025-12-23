@@ -70,11 +70,14 @@ type InvestigationListResponse struct {
 
 // ClickHouseInference represents inference data from TensorZero's ClickHouse
 type ClickHouseInference struct {
-	ID               string    `json:"id"`
-	FunctionName     string    `json:"function_name"`
-	VariantName      string    `json:"variant_name"`
-	Timestamp        time.Time `json:"timestamp"`
-	ProcessingTimeMs int64     `json:"processing_time_ms"`
+	ID               string      `json:"id"`
+	FunctionName     string      `json:"function_name"`
+	VariantName      string      `json:"variant_name"`
+	Timestamp        time.Time   `json:"timestamp"`
+	ProcessingTimeMs int64       `json:"processing_time_ms"`
+	Input            interface{} `json:"input"`
+	Output           interface{} `json:"output"`
+	Usage            interface{} `json:"usage"` // Token usage
 }
 
 // InferenceDetailsResponse enriched inference with model info
@@ -110,10 +113,18 @@ type Feedback struct {
 	Timestamp  time.Time   `json:"timestamp"`
 }
 
+// TensorZeroModel represents the TensorZero model to use
+type TensorZeroModel string
+
+const (
+	TensorZeroModelDiagnoseAndHealApplication TensorZeroModel = "tensorzero::function_name::diagnose_and_heal_application"
+	TensorZeroModelDiagnoseAndHeal            TensorZeroModel = "tensorzero::function_name::diagnose_and_heal"
+)
+
 // TensorZeroCoreRequest is sent to TensorZero for AI analysis
 type TensorZeroCoreRequest struct {
-	Model    string        `json:"model"` // tensorzero::function_name::diagnose_and_heal or diagnose_and_heal_application
-	Messages []ChatMessage `json:"messages"`
+	Model    TensorZeroModel `json:"model"` // tensorzero::function_name::diagnose_and_heal or diagnose_and_heal_application
+	Messages []ChatMessage   `json:"messages"`
 }
 
 // ChatMessage for TensorZero conversation
@@ -156,12 +167,13 @@ type DiagnosticResponse struct {
 	ResponseType string        `json:"response_type"` // "diagnostic"
 	Reasoning    string        `json:"reasoning"`     // Diagnostic reasoning
 	Commands     []string      `json:"commands"`      // Shell commands to run
-	eBPFPrograms []eBPFProgram `json:"ebpf_programs"` // eBPF tracing programs
+	EBPFPrograms []EBPFProgram `json:"ebpf_programs"` // eBPF tracing programs
 }
 
-// eBPFProgram represents an eBPF/bpftrace program
-type eBPFProgram struct {
+// EBPFProgram represents an eBPF program to run
+type EBPFProgram struct {
 	Name        string                 `json:"name"`        // Program name
+	Code        string                 `json:"code"`        // Program code/script
 	Type        string                 `json:"type"`        // "bpftrace"
 	Target      string                 `json:"target"`      // bpftrace script/target
 	Duration    int                    `json:"duration"`    // Duration in seconds
@@ -169,14 +181,13 @@ type eBPFProgram struct {
 	Description string                 `json:"description"` // Program description
 }
 
-// ResolutionResponse is parsed from TensorZeroMessage.Content (final response)
-// This is the JSON content within the assistant's final message
+// ResolutionResponse is the final response with resolution plan
 type ResolutionResponse struct {
 	ResponseType   string `json:"response_type"`   // "resolution"
 	RootCause      string `json:"root_cause"`      // Root cause analysis
 	ResolutionPlan string `json:"resolution_plan"` // Step-by-step resolution plan
 	Confidence     string `json:"confidence"`      // "High", "Medium", "Low"
-	eBPFEvidence   string `json:"ebpf_evidence"`   // Evidence from eBPF monitoring
+	EBPFEvidence   string `json:"ebpf_evidence"`   // Evidence from eBPF monitoring
 }
 
 // Choice is TensorZero's completion choice (deprecated: use TensorZeroChoice)

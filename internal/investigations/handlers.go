@@ -18,7 +18,7 @@ import (
 // Called by: User via `/api/investigations` POST
 // Does: Validate prompt (10+ chars), create DB record, return investigation_id
 // Then: Agent receives via realtime, sends back to same endpoint as proxy
-func CreateInvestigation(app core.App, userID string, req types.InvestigationRequest) (*types.InvestigationResponse, error) {
+func CreateInvestigation(app core.App, userID string, req types.InvestigationRequest, initiatedBy string) (*types.InvestigationResponse, error) {
 	// Validation
 	if req.AgentID == "" || req.Issue == "" {
 		return nil, fmt.Errorf("agent_id and issue are required")
@@ -65,7 +65,7 @@ func CreateInvestigation(app core.App, userID string, req types.InvestigationReq
 	record.Set("priority", priority)
 	record.Set("status", string(types.InvestigationStatusPending))
 	record.Set("initiated_at", time.Now())
-	record.Set("metadata", map[string]interface{}{})
+	record.Set("metadata", map[string]interface{}{"initiated_by": initiatedBy})
 
 	if err := app.Save(record); err != nil {
 		return nil, fmt.Errorf("failed to save investigation: %w", err)
@@ -83,7 +83,7 @@ func CreateInvestigation(app core.App, userID string, req types.InvestigationReq
 		InitiatedAt:    record.GetDateTime("initiated_at").Time(),
 		CreatedAt:      record.GetDateTime("created").Time(),
 		UpdatedAt:      record.GetDateTime("updated").Time(),
-		Metadata:       make(map[string]interface{}),
+		Metadata:       map[string]interface{}{"initiated_by": initiatedBy},
 	}, nil
 }
 
@@ -162,15 +162,16 @@ func GetInvestigation(app core.App, userID, investigationID string) (*types.Inve
 		// ClickHouse is configured and required
 		inferences, err := chClient.FetchInferencesByEpisode(response.EpisodeID)
 		if err != nil {
-			// ClickHouse configured but failed - this is an error
-			return nil, fmt.Errorf("failed to fetch inferences from ClickHouse: %w", err)
+			// ClickHouse configured but failed - log and continue
+			app.Logger().Error("failed to fetch inferences from ClickHouse", "error", err)
+		} else {
+			// Add inference count to response metadata
+			if response.Metadata == nil {
+				response.Metadata = make(map[string]interface{})
+			}
+			response.InferenceCount = len(inferences)
+			response.Metadata["inferences"] = inferences
 		}
-		// Add inference count to response metadata
-		if response.Metadata == nil {
-			response.Metadata = make(map[string]interface{})
-		}
-		response.InferenceCount = len(inferences)
-		response.Metadata["inferences"] = inferences
 	}
 
 	return response, nil
@@ -336,6 +337,16 @@ func handleCreateInvestigation(app core.App, c *core.RequestEvent, userID string
 
 	investigationID, hasInvestigationID := bodyMap["investigation_id"].(string)
 
+	// Determine initiated_by
+	initiatedBy := "user"
+	authRecord := c.Get("authRecord")
+	if authRecord != nil {
+		rec := authRecord.(*core.Record)
+		if rec.Collection().Name == "agents" {
+			initiatedBy = "agent"
+		}
+	}
+
 	// CASE 1: Portal-initiated investigation (no investigation_id in body)
 	if !hasInvestigationID {
 		var req types.InvestigationRequest
@@ -343,7 +354,7 @@ func handleCreateInvestigation(app core.App, c *core.RequestEvent, userID string
 			return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "invalid request format"})
 		}
 
-		resp, err := CreateInvestigation(app, userID, req)
+		resp, err := CreateInvestigation(app, userID, req, initiatedBy)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: err.Error()})
 		}
@@ -384,7 +395,22 @@ func proxyToTensorZero(app core.App, c *core.RequestEvent, userID, investigation
 	tzClient := tensorzero.NewClient()
 	// tzClient will panic if credentials are not set, which is correct behavior
 
-	tzResp, err := tzClient.CallChatCompletion(tzRequest.Messages)
+	// Determine model based on initiated_by
+	metadata := getMetadata(record)
+	initiatedBy := "user"
+	if val, ok := metadata["initiated_by"].(string); ok {
+		initiatedBy = val
+	}
+
+	model := types.TensorZeroModelDiagnoseAndHealApplication
+	if initiatedBy == "agent" {
+		model = types.TensorZeroModelDiagnoseAndHeal
+	}
+
+	// Get episode_id header
+	headerEpisodeID := c.Request.Header.Get("episode_id")
+
+	tzResp, err := tzClient.CallChatCompletion(tzRequest.Messages, model, headerEpisodeID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: fmt.Sprintf("TensorZero error: %v", err)})
 	}

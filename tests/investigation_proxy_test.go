@@ -44,6 +44,7 @@ func setupTestUserAndAgent(t *testing.T, app *tests.TestApp) (string, string) {
 // 5. Agent sends final response with resolution_plan
 // 6. API marks investigation complete
 func TestInvestigationProxyWorkflow(t *testing.T) {
+	LoadEnv(t)
 	app := setupTestApp(t)
 	defer app.Cleanup()
 
@@ -59,7 +60,7 @@ func TestInvestigationProxyWorkflow(t *testing.T) {
 			Priority: "high",
 		}
 
-		investigation, err := investigations.CreateInvestigation(app, userID, investigationReq)
+		investigation, err := investigations.CreateInvestigation(app, userID, investigationReq, "user")
 		if err != nil {
 			t.Fatalf("Failed to create investigation: %v", err)
 		}
@@ -243,7 +244,7 @@ func TestInvestigationProxyPromptValidation(t *testing.T) {
 				Priority: "medium",
 			}
 
-			_, err := investigations.CreateInvestigation(app, userID, investigationReq)
+			_, err := investigations.CreateInvestigation(app, userID, investigationReq, "user")
 
 			if tt.expectErr && err == nil {
 				t.Errorf("Expected error, got nil")
@@ -302,6 +303,7 @@ func TestInvestigationProxyAgentInitiated(t *testing.T) {
 // TestInvestigationWithClickHouseEnrichment tests fetching inferences from ClickHouse
 // When investigation is complete and has episode_id, GetInvestigation enriches response
 func TestInvestigationWithClickHouseEnrichment(t *testing.T) {
+	LoadEnv(t)
 	app := setupTestApp(t)
 	defer app.Cleanup()
 
@@ -315,7 +317,7 @@ func TestInvestigationWithClickHouseEnrichment(t *testing.T) {
 			Priority: "critical",
 		}
 
-		investigation, err := investigations.CreateInvestigation(app, userID, investigationReq)
+		investigation, err := investigations.CreateInvestigation(app, userID, investigationReq, "user")
 		if err != nil {
 			t.Fatalf("Failed to create investigation: %v", err)
 		}
@@ -345,11 +347,16 @@ func TestInvestigationWithClickHouseEnrichment(t *testing.T) {
 		}
 
 		// Note: ClickHouse query happens in GetInvestigation but requires ClickHouse service
-		// In test environment without ClickHouse, the enrichment would skip gracefully
+		// We assert that the enrichment attempted to run by checking if "inferences" key exists in metadata.
+		// Even if empty, it should be present if the query succeeded.
+		if _, ok := result.Metadata["inferences"]; !ok {
+			t.Errorf("Expected 'inferences' in metadata, indicating ClickHouse query succeeded (even if empty). Check ClickHouse connectivity.")
+		}
+
 		t.Logf("✓ Investigation retrieved with episode_id")
 		t.Logf("  - Episode ID: %s", result.EpisodeID)
 		t.Logf("  - Status: %s", result.Status)
-		t.Logf("  - (ClickHouse enrichment would happen here if service available)")
+		t.Logf("  - Inferences found: %d", result.InferenceCount)
 	})
 }
 

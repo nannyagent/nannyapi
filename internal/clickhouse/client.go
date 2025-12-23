@@ -68,7 +68,9 @@ func (c *Client) FetchInferencesByEpisode(episodeID string) ([]types.ClickHouseI
 			function_name,
 			variant_name,
 			timestamp,
-			processing_time_ms
+			processing_time_ms,
+			input,
+			output
 		FROM ChatInference
 		WHERE episode_id = '%s'
 		ORDER BY timestamp ASC
@@ -83,7 +85,7 @@ func (c *Client) FetchInferencesByEpisode(episodeID string) ([]types.ClickHouseI
 	var inferences []types.ClickHouseInference
 	if len(result) > 0 {
 		for _, row := range result {
-			if len(row) >= 5 {
+			if len(row) >= 7 {
 				var timestamp time.Time
 				if ts, ok := row[3].(string); ok {
 					timestamp, _ = time.Parse(time.RFC3339, ts)
@@ -96,11 +98,67 @@ func (c *Client) FetchInferencesByEpisode(episodeID string) ([]types.ClickHouseI
 					Timestamp:        timestamp,
 					ProcessingTimeMs: int64(row[4].(float64)),
 				}
+
+				// Parse Input JSON
+				if len(row) > 5 && row[5] != nil {
+					if inputStr, ok := row[5].(string); ok {
+						var inputMap map[string]interface{}
+						// Try direct unmarshal
+						if err := json.Unmarshal([]byte(inputStr), &inputMap); err == nil {
+							inference.Input = inputMap
+						} else {
+							// Try array wrapper (TensorZero format)
+							var inputArray []map[string]interface{}
+							if err := json.Unmarshal([]byte(inputStr), &inputArray); err == nil && len(inputArray) > 0 {
+								if text, ok := inputArray[0]["text"].(string); ok {
+									// Try to unmarshal the inner text
+									var innerMap map[string]interface{}
+									if err := json.Unmarshal([]byte(text), &innerMap); err == nil {
+										inference.Input = innerMap
+									}
+								} else if content, ok := inputArray[0]["content"].(string); ok {
+									// Sometimes it might be "content"
+									var innerMap map[string]interface{}
+									if err := json.Unmarshal([]byte(content), &innerMap); err == nil {
+										inference.Input = innerMap
+									}
+								}
+							}
+						}
+					} else if inputMap, ok := row[5].(map[string]interface{}); ok {
+						inference.Input = inputMap
+					}
+				}
+
+				// Parse Output JSON
+				if len(row) > 6 && row[6] != nil {
+					if outputStr, ok := row[6].(string); ok {
+						var outputMap map[string]interface{}
+						// Try direct unmarshal
+						if err := json.Unmarshal([]byte(outputStr), &outputMap); err == nil {
+							inference.Output = outputMap
+						} else {
+							// Try array wrapper (TensorZero format)
+							var outputArray []map[string]interface{}
+							if err := json.Unmarshal([]byte(outputStr), &outputArray); err == nil && len(outputArray) > 0 {
+								if text, ok := outputArray[0]["text"].(string); ok {
+									// Try to unmarshal the inner text
+									var innerMap map[string]interface{}
+									if err := json.Unmarshal([]byte(text), &innerMap); err == nil {
+										inference.Output = innerMap
+									}
+								}
+							}
+						}
+					} else if outputMap, ok := row[6].(map[string]interface{}); ok {
+						inference.Output = outputMap
+					}
+				}
+
 				inferences = append(inferences, inference)
 			}
 		}
 	}
-
 	return inferences, nil
 }
 

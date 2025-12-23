@@ -46,6 +46,7 @@ func TestExtendedMetricsFields(t *testing.T) {
 	agent.Set("platform", "linux")
 	agent.Set("version", "1.0.0")
 	agent.Set("status", "active")
+	agent.SetPassword("testpass123")
 	if err := app.Save(agent); err != nil {
 		t.Fatalf("Failed to save agent: %v", err)
 	}
@@ -169,6 +170,7 @@ func TestIngestMetricsWithExtendedData(t *testing.T) {
 	agent.Set("platform", "linux")
 	agent.Set("version", "1.0.0")
 	agent.Set("status", "active")
+	agent.SetPassword("testpass123")
 	if err := app.Save(agent); err != nil {
 		t.Fatalf("Failed to save agent: %v", err)
 	}

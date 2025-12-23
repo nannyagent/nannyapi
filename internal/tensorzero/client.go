@@ -40,11 +40,11 @@ func NewClient() *Client {
 }
 
 // CallChatCompletion calls TensorZero Core API for investigation
-func (c *Client) CallChatCompletion(messages []types.ChatMessage) (*types.TensorZeroResponse, error) {
+func (c *Client) CallChatCompletion(messages []types.ChatMessage, model types.TensorZeroModel, episodeID string) (*types.TensorZeroResponse, error) {
 	url := fmt.Sprintf("%s/openai/v1/chat/completions", c.baseURL)
 
 	payload := map[string]interface{}{
-		"model":    "tensorzero::function_name::diagnose_and_heal_application",
+		"model":    model,
 		"messages": messages,
 	}
 
@@ -61,6 +61,9 @@ func (c *Client) CallChatCompletion(messages []types.ChatMessage) (*types.Tensor
 	req.Header.Set("Content-Type", "application/json")
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+	}
+	if episodeID != "" {
+		req.Header.Set("episode_id", episodeID)
 	}
 
 	resp, err := c.client.Do(req)

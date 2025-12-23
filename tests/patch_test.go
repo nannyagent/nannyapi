@@ -36,6 +36,7 @@ func setupPatchPrerequisites(app core.App, t *testing.T, agentID string) {
 	}
 	script := core.NewRecord(scriptsCollection)
 	script.Set("name", "update-packages")
+	script.Set("platform_family", "debian")
 	script.Set("os_type", "linux")
 	script.Set("os_version", "ubuntu-22.04")
 	script.Set("sha256", "fake-sha256-hash")

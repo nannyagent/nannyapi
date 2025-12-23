@@ -61,7 +61,8 @@ func TestAgentInvestigationAuth(t *testing.T) {
 	agent.Set("user_id", user.Id)
 	agent.Set("device_code_id", deviceCode.Id)
 	agent.Set("hostname", "test-agent")
-	agent.Set("platform", "linux")
+	agent.Set("os_type", "linux")
+	agent.Set("platform_family", "debian")
 	agent.Set("version", "1.0.0")
 	agent.SetPassword("AgentPass123!") // Important: Set password for Auth collection
 	if err := app.Save(agent); err != nil {

@@ -151,6 +151,31 @@ func HandleRegister(app core.App, c *core.RequestEvent) error {
 	agentRecord.Set("kernel_version", req.KernelVersion)
 	agentRecord.Set("arch", req.Arch)
 
+	// Fallback for platform_family if missing
+	platformFamily := req.PlatformFamily
+	if platformFamily == "" {
+		// Try to guess from OSInfo
+		osInfoLower := strings.ToLower(req.OSInfo)
+		if strings.Contains(osInfoLower, "debian") || strings.Contains(osInfoLower, "ubuntu") || strings.Contains(osInfoLower, "mint") || strings.Contains(osInfoLower, "pop") {
+			platformFamily = "debian"
+		} else if strings.Contains(osInfoLower, "red hat") || strings.Contains(osInfoLower, "rhel") || strings.Contains(osInfoLower, "centos") || strings.Contains(osInfoLower, "fedora") || strings.Contains(osInfoLower, "alma") || strings.Contains(osInfoLower, "rocky") || strings.Contains(osInfoLower, "amazon") {
+			platformFamily = "rhel"
+		} else if strings.Contains(osInfoLower, "suse") || strings.Contains(osInfoLower, "sles") {
+			platformFamily = "suse"
+		} else if strings.Contains(osInfoLower, "arch") || strings.Contains(osInfoLower, "manjaro") {
+			platformFamily = "arch"
+		} else if strings.Contains(osInfoLower, "alpine") {
+			platformFamily = "alpine"
+		} else if req.OSType == "darwin" {
+			platformFamily = "darwin"
+		} else if req.OSType == "windows" {
+			platformFamily = "windows"
+		} else {
+			platformFamily = "unknown"
+		}
+	}
+	agentRecord.Set("platform_family", platformFamily)
+
 	// Set random password to satisfy Auth collection requirements
 	password, err := generateRandomPassword(32)
 	if err != nil {
@@ -280,6 +305,10 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 		ipsJSON, _ := json.Marshal(req.AllIPs)
 		agentRecord.Set("all_ips", string(ipsJSON))
 	}
+	if req.KernelFamily == "" {
+		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "platform_family required"})
+	}
+	agentRecord.Set("platform_family", req.KernelFamily)
 
 	if err := app.Save(agentRecord); err != nil {
 		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "failed to update agent"})

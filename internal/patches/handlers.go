@@ -41,7 +41,7 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 	}
 
 	// Get agent OS info
-	osType := agentRecord.GetString("os_type")
+	platformFamily := agentRecord.GetString("platform_family")
 	osVersion := agentRecord.GetString("os_version")
 
 	// Find appropriate script for this OS
@@ -50,42 +50,32 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 		return nil, fmt.Errorf("scripts collection not found: %w", err)
 	}
 
-	// Try to find script matching OS type and version
-	// If no exact match, try matching just OS type
-	// If still no match, fail
+	// Try to find script matching platform family and version
 	var scriptRecord *core.Record
 
-	// 1. Try exact match (os_type + os_version)
-	if osType != "" && osVersion != "" {
-		records, err := app.FindRecordsByFilter(scriptsCollection, "os_type = {:osType} && os_version = {:osVer}", "", 1, 0, map[string]interface{}{
-			"osType": osType,
-			"osVer":  osVersion,
+	// 1. Try exact match (platform_family + os_version)
+	if platformFamily != "" && osVersion != "" {
+		records, err := app.FindRecordsByFilter(scriptsCollection, "platform_family = {:pf} && os_version = {:osVer}", "", 1, 0, map[string]interface{}{
+			"pf":    platformFamily,
+			"osVer": osVersion,
 		})
 		if err == nil && len(records) > 0 {
 			scriptRecord = records[0]
 		}
 	}
 
-	// 2. Try OS type match only (generic script for distro)
-	if scriptRecord == nil && osType != "" {
-		records, err := app.FindRecordsByFilter(scriptsCollection, "os_type = {:osType} && os_version = ''", "", 1, 0, map[string]interface{}{
-			"osType": osType,
+	// 2. Try platform family match only (generic script for distro family)
+	if scriptRecord == nil && platformFamily != "" {
+		records, err := app.FindRecordsByFilter(scriptsCollection, "platform_family = {:pf} && os_version = ''", "", 1, 0, map[string]interface{}{
+			"pf": platformFamily,
 		})
 		if err == nil && len(records) > 0 {
 			scriptRecord = records[0]
 		}
 	}
 
-	// 3. Fallback to "linux" generic if available
 	if scriptRecord == nil {
-		records, err := app.FindRecordsByFilter(scriptsCollection, "os_type = 'linux'", "", 1, 0, nil)
-		if err == nil && len(records) > 0 {
-			scriptRecord = records[0]
-		}
-	}
-
-	if scriptRecord == nil {
-		return nil, fmt.Errorf("no compatible patch script found for agent OS: %s %s", osType, osVersion)
+		return nil, fmt.Errorf("no compatible patch script found for agent platform: %s %s", platformFamily, osVersion)
 	}
 
 	scriptURL := fmt.Sprintf("/api/files/%s/%s/%s", scriptsCollection.Id, scriptRecord.Id, scriptRecord.GetString("file"))
@@ -103,7 +93,8 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 	record.Set("agent_id", req.AgentID)
 	record.Set("mode", string(mode))
 	record.Set("status", string(types.PatchStatusPending))
-	record.Set("script_url", scriptURL) // Store the resolved script URL
+	record.Set("script_id", scriptRecord.Id)
+	record.Set("script_url", scriptURL) // Keep for legacy/compatibility if needed, or remove if fully migrated
 
 	if err := app.Save(record); err != nil {
 		return nil, fmt.Errorf("failed to save patch operation: %w", err)

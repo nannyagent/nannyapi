@@ -68,7 +68,9 @@ func TestPatchEndToEndFlow(t *testing.T) {
 	agent.Set("user_id", user.Id)
 	agent.Set("device_code_id", deviceCode.Id)
 	agent.Set("hostname", "patch-agent")
-	agent.Set("platform", "linux")
+	agent.Set("os_type", "linux")
+	agent.Set("platform_family", "debian")
+	agent.Set("os_version", "ubuntu-22.04")
 	agent.Set("version", "1.0.0")
 	agent.SetPassword("AgentPass123!")
 	if err := testApp.Save(agent); err != nil {
@@ -89,6 +91,7 @@ func TestPatchEndToEndFlow(t *testing.T) {
 	scriptsCollection, _ := testApp.FindCollectionByNameOrId("scripts")
 	script := core.NewRecord(scriptsCollection)
 	script.Set("name", "update-packages")
+	script.Set("platform_family", "debian")
 	script.Set("os_type", "linux")
 	script.Set("os_version", "ubuntu-22.04")
 	script.Set("sha256", "fake-sha256-hash")
@@ -103,10 +106,9 @@ func TestPatchEndToEndFlow(t *testing.T) {
 		URL:    "/api/agent",
 		Body: strings.NewReader(`{
 			"action": "ingest-metrics",
-			"metrics": {
-				"cpu_usage": 10.5,
-				"distro_type": "linux",
-				"distro_version": "ubuntu-22.04",
+			"platform_family": "debian",
+			"system_metrics": {
+				"cpu_percent": 10.5,
 				"filesystems": []
 			}
 		}`),
@@ -318,10 +320,13 @@ func TestPatchEndToEndFlow(t *testing.T) {
 	agent2.Set("user_id", user.Id)
 	agent2.Set("device_code_id", deviceCode.Id) // Reusing device code for simplicity in test setup
 	agent2.Set("hostname", "agent-2")
-	agent2.Set("platform", "linux")
+	agent2.Set("os_type", "linux")
+	agent2.Set("platform_family", "debian")
 	agent2.Set("version", "1.0.0")
 	agent2.SetPassword("AgentPass123!")
-	testApp.Save(agent2)
+	if err := testApp.Save(agent2); err != nil {
+		t.Fatalf("Failed to save agent2: %v", err)
+	}
 	agent2Token, _ := agent2.NewAuthToken()
 
 	(&tests.ApiScenario{

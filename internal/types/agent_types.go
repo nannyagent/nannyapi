@@ -47,17 +47,18 @@ type AuthorizeResponse struct {
 
 // RegisterRequest - agent registers with device code
 type RegisterRequest struct {
-	Action        string   `json:"action"`         // "register"
-	DeviceCode    string   `json:"device_code"`    // UUID from device-auth-start
-	Hostname      string   `json:"hostname"`       // Agent hostname
-	OSType        string   `json:"os_type"`        // OS type (linux, darwin, windows)
-	OSInfo        string   `json:"os_info"`        // OS info (e.g. "Ubuntu 22.04 LTS")
-	OSVersion     string   `json:"os_version"`     // OS version (e.g. "22.04")
-	Version       string   `json:"version"`        // Agent version
-	PrimaryIP     string   `json:"primary_ip"`     // Primary IP address (WAN/eth0)
-	KernelVersion string   `json:"kernel_version"` // Kernel version
-	Arch          string   `json:"arch"`           // CPU architecture (amd64, arm64)
-	AllIPs        []string `json:"all_ips"`        // All IP addresses from all NICs
+	Action         string   `json:"action"`          // "register"
+	DeviceCode     string   `json:"device_code"`     // UUID from device-auth-start
+	Hostname       string   `json:"hostname"`        // Agent hostname
+	OSType         string   `json:"os_type"`         // OS type (linux, darwin, windows)
+	OSInfo         string   `json:"os_info"`         // OS info (e.g. "Ubuntu 22.04 LTS")
+	OSVersion      string   `json:"os_version"`      // OS version (e.g. "22.04")
+	Version        string   `json:"version"`         // Agent version
+	PrimaryIP      string   `json:"primary_ip"`      // Primary IP address (WAN/eth0)
+	KernelVersion  string   `json:"kernel_version"`  // Kernel version
+	Arch           string   `json:"arch"`            // CPU architecture (amd64, arm64)
+	AllIPs         []string `json:"all_ips"`         // All IP addresses from all NICs
+	PlatformFamily string   `json:"platform_family"` // Platform family (debian, redhat, etc.)
 }
 
 // TokenResponse - access & refresh tokens
@@ -123,6 +124,7 @@ type IngestMetricsRequest struct {
 	Version       string   `json:"version,omitempty"`
 	PrimaryIP     string   `json:"primary_ip,omitempty"`
 	KernelVersion string   `json:"kernel_version,omitempty"`
+	KernelFamily  string   `json:"platform_family,omitempty"`
 	Arch          string   `json:"arch,omitempty"`
 	AllIPs        []string `json:"all_ips,omitempty"`
 }

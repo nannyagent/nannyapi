@@ -1,8 +1,16 @@
 package pb_migrations
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/pocketbase/pocketbase/core"
 	m "github.com/pocketbase/pocketbase/migrations"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
 
 func init() {
@@ -21,6 +29,43 @@ func init() {
 
 		agentsCollection, err := app.FindCollectionByNameOrId("agents")
 		if err != nil {
+			return err
+		}
+
+		// Create scripts collection first so we can reference it
+		scripts := core.NewBaseCollection("scripts")
+		scripts.Fields.Add(&core.TextField{
+			Name:     "name",
+			Required: true,
+		})
+		scripts.Fields.Add(&core.TextField{
+			Name:     "description",
+			Required: false,
+		})
+		scripts.Fields.Add(&core.TextField{
+			Name:     "platform_family",
+			Required: true,
+		})
+		scripts.Fields.Add(&core.TextField{
+			Name:     "os_version",
+			Required: false,
+		})
+		scripts.Fields.Add(&core.FileField{
+			Name:      "file",
+			Required:  true,
+			MaxSelect: 1,
+			MaxSize:   1024 * 1024 * 10, // 10MB
+		})
+		scripts.Fields.Add(&core.TextField{
+			Name:     "sha256",
+			Required: true,
+		})
+
+		// Set API rules for scripts (public read for agents)
+		scripts.ListRule = ptrString("@request.auth.id != ''") // Authenticated users can list
+		scripts.ViewRule = ptrString("@request.auth.id != ''") // Authenticated users can view/download
+
+		if err := app.Save(scripts); err != nil {
 			return err
 		}
 
@@ -59,10 +104,19 @@ func init() {
 			Max:      50,
 		})
 
-		// Reference to script in storage (URL or path)
+		// Reference to script in scripts collection
+		patchOps.Fields.Add(&core.RelationField{
+			Name:          "script_id",
+			Required:      true,
+			CollectionId:  scripts.Id,
+			CascadeDelete: false,
+			MaxSelect:     1,
+		})
+
+		// Legacy script URL (optional now)
 		patchOps.Fields.Add(&core.TextField{
 			Name:     "script_url",
-			Required: true,
+			Required: false,
 			Max:      1000,
 		})
 
@@ -121,41 +175,65 @@ func init() {
 			return err
 		}
 
-		// Create scripts collection
-		scripts := core.NewBaseCollection("scripts")
-		scripts.Fields.Add(&core.TextField{
-			Name:     "name",
-			Required: true,
-		})
-		scripts.Fields.Add(&core.TextField{
-			Name:     "description",
-			Required: false,
-		})
-		scripts.Fields.Add(&core.TextField{
-			Name:     "os_type",
-			Required: true,
-		})
-		scripts.Fields.Add(&core.TextField{
-			Name:     "os_version",
-			Required: false,
-		})
-		scripts.Fields.Add(&core.FileField{
-			Name:      "file",
-			Required:  true,
-			MaxSelect: 1,
-			MaxSize:   1024 * 1024 * 10, // 10MB
-		})
-		scripts.Fields.Add(&core.TextField{
-			Name:     "sha256",
-			Required: true,
-		})
+		// Populate scripts from patch_scripts directory
+		scriptDir := "patch_scripts"
+		if _, err := os.Stat(scriptDir); err == nil {
+			err = filepath.Walk(scriptDir, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.IsDir() {
+					return nil
+				}
 
-		// Set API rules for scripts (public read for agents)
-		scripts.ListRule = nil // Admin only list
-		scripts.ViewRule = nil // Admin only view
+				// Expected path: patch_scripts/<platform_family>/<script_name>
+				relPath, err := filepath.Rel(scriptDir, path)
+				if err != nil {
+					return err
+				}
+				parts := strings.Split(relPath, string(os.PathSeparator))
+				if len(parts) != 2 {
+					return nil // Skip files not in platform subdirectories
+				}
+				platformFamily := parts[0]
+				scriptName := parts[1]
 
-		if err := app.Save(scripts); err != nil {
-			return err
+				// Calculate SHA256
+				f, err := os.Open(path)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+
+				h := sha256.New()
+				if _, err := io.Copy(h, f); err != nil {
+					return err
+				}
+				hash := hex.EncodeToString(h.Sum(nil))
+
+				// Re-open file for upload
+				f.Seek(0, 0)
+				content, err := io.ReadAll(f)
+				if err != nil {
+					return err
+				}
+				file, err := filesystem.NewFileFromBytes(content, scriptName)
+				if err != nil {
+					return err
+				}
+
+				record := core.NewRecord(scripts)
+				record.Set("name", scriptName)
+				record.Set("platform_family", platformFamily)
+				record.Set("file", file)
+				record.Set("sha256", hash)
+				record.Set("description", "Auto-imported patch script")
+
+				return app.Save(record)
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		// Update agent_metrics collection with distro info

@@ -531,7 +531,7 @@ func CleanupExpiredDeviceCodes(app core.App) {
 	}
 
 	oneDayAgo := time.Now().Add(-24 * time.Hour)
-	filter := "expires_at < {:now} || (consumed = true && created < {:oneDayAgo})"
+	filter := "expires_at < {:now} || (consumed = true)"
 	records, err := app.FindRecordsByFilter(collection, filter, "", 100, 0, map[string]any{
 		"now":       time.Now(),
 		"oneDayAgo": oneDayAgo,

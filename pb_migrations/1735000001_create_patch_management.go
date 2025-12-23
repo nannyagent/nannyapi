@@ -93,10 +93,10 @@ func init() {
 		})
 
 		// Set API rules
-		patchOps.ListRule = ptrString("user_id = @request.auth.id")
-		patchOps.ViewRule = ptrString("user_id = @request.auth.id")
-		patchOps.CreateRule = ptrString("user_id = @request.auth.id")
-		patchOps.UpdateRule = ptrString("user_id = @request.auth.id")
+		patchOps.ListRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id")
+		patchOps.ViewRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id")
+		patchOps.CreateRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id")
+		patchOps.UpdateRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id")
 		patchOps.DeleteRule = ptrString("user_id = @request.auth.id")
 
 		if err := app.Save(patchOps); err != nil {

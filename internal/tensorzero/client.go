@@ -48,6 +48,10 @@ func (c *Client) CallChatCompletion(messages []types.ChatMessage, model types.Te
 		"messages": messages,
 	}
 
+	if episodeID != "" {
+		payload["tensorzero::episode_id"] = episodeID
+	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -61,9 +65,6 @@ func (c *Client) CallChatCompletion(messages []types.ChatMessage, model types.Te
 	req.Header.Set("Content-Type", "application/json")
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
-	}
-	if episodeID != "" {
-		req.Header.Set("episode_id", episodeID)
 	}
 
 	resp, err := c.client.Do(req)

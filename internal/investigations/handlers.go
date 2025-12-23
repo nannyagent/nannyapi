@@ -392,8 +392,8 @@ func proxyToTensorZero(app core.App, c *core.RequestEvent, userID, investigation
 	}
 
 	// Forward to TensorZero Core UNCHANGED
-	tzClient := tensorzero.NewClient()
 	// tzClient will panic if credentials are not set, which is correct behavior
+	tzClient := tensorzero.NewClient()
 
 	// Determine model based on initiated_by
 	metadata := getMetadata(record)
@@ -407,10 +407,16 @@ func proxyToTensorZero(app core.App, c *core.RequestEvent, userID, investigation
 		model = types.TensorZeroModelDiagnoseAndHeal
 	}
 
-	// Get episode_id header
-	headerEpisodeID := c.Request.Header.Get("episode_id")
+	// Get episode_id from the investigations table & set it for  next inferences
+	investigation, err := GetInvestigation(app, userID, investigationID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, types.ErrorResponse{Error: err.Error()})
+	}
 
-	tzResp, err := tzClient.CallChatCompletion(tzRequest.Messages, model, headerEpisodeID)
+	// if there is no empty episode_id, tensorzero will anyways discard it
+	episodeIDForInference := investigation.EpisodeID
+
+	tzResp, err := tzClient.CallChatCompletion(tzRequest.Messages, model, episodeIDForInference)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: fmt.Sprintf("TensorZero error: %v", err)})
 	}

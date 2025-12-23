@@ -77,6 +77,13 @@ func init() {
 			})
 		}
 
+		// Set API rules - only investigation owner and their agents
+		metricsCollection.ListRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
+		metricsCollection.ViewRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
+		metricsCollection.CreateRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
+		metricsCollection.UpdateRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
+		metricsCollection.DeleteRule = ptrString("user_id = @request.auth.id")
+
 		return app.Save(metricsCollection)
 	}, func(app core.App) error {
 		// Rollback: no need to actively remove - the migration is idempotent

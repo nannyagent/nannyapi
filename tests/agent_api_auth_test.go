@@ -34,7 +34,7 @@ func TestAgentInvestigationAuth(t *testing.T) {
 
 	// Register hooks
 	hooks.RegisterAgentHooks(app)
-	hooks.RegisterInvestigationAndPatchHooks(app)
+	hooks.RegisterInvestigationHooks(app)
 
 	// 1. Create User
 	usersCollection, _ := app.FindCollectionByNameOrId("users")

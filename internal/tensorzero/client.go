@@ -86,7 +86,7 @@ func (c *Client) CallChatCompletion(messages []types.ChatMessage) (*types.Tensor
 	return &tzResp, nil
 }
 
-// RetrieveEpisode retrieves episode data from TensorZero ClickHouse
+// RetrieveEpisode retrieves episode data from ClickHouse
 func (c *Client) RetrieveEpisode(episodeID string) (*map[string]interface{}, error) {
 	url := fmt.Sprintf("%s/v1/episode/%s", c.baseURL, episodeID)
 

@@ -241,31 +241,6 @@ func UpdatePatchStatus(
 	return nil
 }
 
-// CreatePackageUpdate creates a package update record from patch result
-func CreatePackageUpdate(
-	app core.App,
-	patchOpID string,
-	pkg types.PatchPackageInfo,
-) error {
-	collection, err := app.FindCollectionByNameOrId("package_updates")
-	if err != nil {
-		return fmt.Errorf("package_updates collection not found: %w", err)
-	}
-
-	record := core.NewRecord(collection)
-	record.Set("patch_op_id", patchOpID)
-	record.Set("package_name", pkg.Name)
-	record.Set("target_ver", pkg.Version)
-	record.Set("update_type", pkg.UpdateType)
-	record.Set("status", "applied")
-
-	if err := app.Save(record); err != nil {
-		return fmt.Errorf("failed to save package update: %w", err)
-	}
-
-	return nil
-}
-
 // HandleValidateScript validates script SHA256
 func HandleValidateScript(app core.App, c *core.RequestEvent) error {
 	scriptID := c.Request.PathValue("id")

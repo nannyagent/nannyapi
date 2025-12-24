@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"os"
 	"testing"
 
 	"github.com/nannyagent/nannyapi/internal/clickhouse"
@@ -11,6 +12,10 @@ import (
 // using the credentials provided in the .env file.
 func TestClickHouseConnectivity(t *testing.T) {
 	LoadEnv(t)
+
+	if os.Getenv("CLICKHOUSE_URL") == "" {
+		t.Skip("CLICKHOUSE_URL not set")
+	}
 
 	client := clickhouse.NewClient()
 

@@ -50,11 +50,6 @@ func init() {
 			})
 		}
 
-		// Remove 'platform' if it exists
-		if field := agents.Fields.GetByName("platform"); field != nil {
-			agents.Fields.RemoveByName("platform")
-		}
-
 		if err := app.Save(agents); err != nil {
 			return err
 		}
@@ -63,22 +58,6 @@ func init() {
 		metrics, err := app.FindCollectionByNameOrId("agent_metrics")
 		if err != nil {
 			return err
-		}
-
-		// Remove distro_type and distro_version
-		if field := metrics.Fields.GetByName("distro_type"); field != nil {
-			metrics.Fields.RemoveByName("distro_type")
-		}
-		if field := metrics.Fields.GetByName("distro_version"); field != nil {
-			metrics.Fields.RemoveByName("distro_version")
-		}
-
-		// Ensure network fields are correct (remove gbps if exists)
-		if field := metrics.Fields.GetByName("network_in_gbps"); field != nil {
-			metrics.Fields.RemoveByName("network_in_gbps")
-		}
-		if field := metrics.Fields.GetByName("network_out_gbps"); field != nil {
-			metrics.Fields.RemoveByName("network_out_gbps")
 		}
 
 		// network_in_gb and network_out_gb should already exist

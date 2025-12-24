@@ -109,12 +109,6 @@ func init() {
 		})
 
 		agents.Fields.Add(&core.TextField{
-			Name:     "platform",
-			Required: true,
-			Max:      100,
-		})
-
-		agents.Fields.Add(&core.TextField{
 			Name:     "platform_family",
 			Required: true,
 			Max:      100,

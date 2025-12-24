@@ -2,6 +2,8 @@ package tests
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
@@ -94,8 +96,14 @@ func TestPatchEndToEndFlow(t *testing.T) {
 	script.Set("platform_family", "debian")
 	script.Set("os_type", "linux")
 	script.Set("os_version", "ubuntu-22.04")
-	script.Set("sha256", "fake-sha256-hash")
-	f, _ := filesystem.NewFileFromBytes([]byte("#!/bin/bash\necho 'updating...'"), "script.sh")
+
+	scriptContent := []byte("#!/bin/bash\necho 'updating...'")
+	h := sha256.New()
+	h.Write(scriptContent)
+	expectedHash := hex.EncodeToString(h.Sum(nil))
+
+	script.Set("sha256", expectedHash)
+	f, _ := filesystem.NewFileFromBytes(scriptContent, "script.sh")
 	script.Set("file", f)
 	testApp.Save(script)
 
@@ -144,7 +152,7 @@ func TestPatchEndToEndFlow(t *testing.T) {
 		ExpectedStatus: 201,
 		ExpectedContent: []string{
 			`"status":"pending"`,
-			`"script_sha256":"fake-sha256-hash"`,
+			fmt.Sprintf(`"script_sha256":"%s"`, expectedHash),
 			`"mode":"dry-run"`,
 		},
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
@@ -169,7 +177,7 @@ func TestPatchEndToEndFlow(t *testing.T) {
 		},
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
-			`"sha256":"fake-sha256-hash"`,
+			fmt.Sprintf(`"sha256":"%s"`, expectedHash),
 			`"name":"update-packages"`,
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {

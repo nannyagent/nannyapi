@@ -236,89 +236,10 @@ func init() {
 			}
 		}
 
-		// Update agent_metrics collection with distro info
-		metrics, err := app.FindCollectionByNameOrId("agent_metrics")
-		if err == nil {
-			metrics.Fields.Add(&core.TextField{
-				Name:     "distro_type",
-				Required: false,
-			})
-			metrics.Fields.Add(&core.TextField{
-				Name:     "distro_version",
-				Required: false,
-			})
-			app.Save(metrics)
-		}
-
-		// Create package_updates collection to track packages affected by patches
-		packageUpdates := core.NewBaseCollection("package_updates")
-
-		// Reference to patch operation
-		packageUpdates.Fields.Add(&core.RelationField{
-			Name:          "patch_op_id",
-			Required:      true,
-			CollectionId:  patchOps.Id,
-			CascadeDelete: true,
-			MaxSelect:     1,
-		})
-
-		// Package name
-		packageUpdates.Fields.Add(&core.TextField{
-			Name:     "package_name",
-			Required: true,
-			Max:      255,
-		})
-
-		// Current installed version
-		packageUpdates.Fields.Add(&core.TextField{
-			Name:     "current_ver",
-			Required: false,
-			Max:      100,
-		})
-
-		// Target version (empty for removal)
-		packageUpdates.Fields.Add(&core.TextField{
-			Name:     "target_ver",
-			Required: false,
-			Max:      100,
-		})
-
-		// Update type: install, update, remove
-		packageUpdates.Fields.Add(&core.TextField{
-			Name:     "update_type",
-			Required: true,
-			Max:      50,
-		})
-
-		// Status: pending, applied, failed
-		packageUpdates.Fields.Add(&core.TextField{
-			Name:     "status",
-			Required: true,
-			Max:      50,
-		})
-
-		// Dry-run simulation results
-		packageUpdates.Fields.Add(&core.TextField{
-			Name:     "dry_run_results",
-			Required: false,
-			Max:      2000,
-		})
-
-		// Set API rules - only through patch operation owner
-		packageUpdates.ListRule = ptrString("patch_op_id.user_id = @request.auth.id")
-		packageUpdates.ViewRule = ptrString("patch_op_id.user_id = @request.auth.id")
-		packageUpdates.CreateRule = ptrString("") // Backend only
-		packageUpdates.UpdateRule = ptrString("") // Backend only
-		packageUpdates.DeleteRule = ptrString("") // Backend only
-
-		if err := app.Save(packageUpdates); err != nil {
-			return err
-		}
-
 		return nil
 	}, func(app core.App) error {
 		// Rollback: delete collections in reverse order
-		collections := []string{"package_updates", "scripts", "patch_operations"}
+		collections := []string{"scripts", "patch_operations"}
 		for _, name := range collections {
 			collection, _ := app.FindCollectionByNameOrId(name)
 			if collection != nil {

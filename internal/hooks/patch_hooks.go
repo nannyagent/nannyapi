@@ -49,27 +49,70 @@ func RegisterPatchHooks(app core.App) {
 	app.OnRecordCreate("scripts").BindFunc(calculateScriptChecksum)
 	app.OnRecordUpdate("scripts").BindFunc(calculateScriptChecksum)
 
-	// Hook to populate script_url on patch operation creation
+	// Hook to populate script_id, script_url and exclusions on patch operation creation
 	app.OnRecordCreate("patch_operations").BindFunc(func(e *core.RecordEvent) error {
 		scriptID := e.Record.GetString("script_id")
-		if scriptID == "" {
-			return e.Next()
+		agentID := e.Record.GetString("agent_id")
+
+		// 1. Populate script_id if missing
+		if scriptID == "" && agentID != "" {
+			agent, err := app.FindRecordById("agents", agentID)
+			if err != nil {
+				return err
+			}
+			platformFamily := agent.GetString("platform_family")
+
+			records, err := app.FindRecordsByFilter("scripts", "platform_family = {:platform}", "", 1, 0, map[string]interface{}{
+				"platform": platformFamily,
+			})
+			if err != nil {
+				return err
+			}
+			if len(records) == 0 {
+				return fmt.Errorf("no script found for platform family: %s", platformFamily)
+			}
+
+			scriptID = records[0].Id
+			e.Record.Set("script_id", scriptID)
 		}
 
-		// Always populating ensures consistency.
-		scriptsCollection, err := app.FindCollectionByNameOrId("scripts")
-		if err != nil {
-			return err
+		// 2. Populate script_url
+		if scriptID != "" {
+			scriptsCollection, err := app.FindCollectionByNameOrId("scripts")
+			if err != nil {
+				return err
+			}
+
+			scriptRecord, err := app.FindRecordById(scriptsCollection, scriptID)
+			if err != nil {
+				return err
+			}
+
+			// Construct URL: /api/files/<collection>/<id>/<filename>
+			scriptURL := fmt.Sprintf("/api/files/%s/%s/%s", scriptsCollection.Id, scriptRecord.Id, scriptRecord.GetString("file"))
+			e.Record.Set("script_url", scriptURL)
 		}
 
-		scriptRecord, err := app.FindRecordById(scriptsCollection, scriptID)
-		if err != nil {
-			return err
-		}
+		// 3. Populate exclusions
+		if agentID != "" {
+			exceptions, err := app.FindRecordsByFilter("package_exceptions",
+				"agent_id = {:agentID} && is_active = true && (expires_at = '' || expires_at >= @now)",
+				"", 0, 0, map[string]interface{}{
+					"agentID": agentID,
+				})
+			if err != nil {
+				return err
+			}
 
-		// Construct URL: /api/files/<collection>/<id>/<filename>
-		scriptURL := fmt.Sprintf("/api/files/%s/%s/%s", scriptsCollection.Id, scriptRecord.Id, scriptRecord.GetString("file"))
-		e.Record.Set("script_url", scriptURL)
+			var excludedPackages []string
+			for _, ex := range exceptions {
+				excludedPackages = append(excludedPackages, ex.GetString("package_name"))
+			}
+
+			if len(excludedPackages) > 0 {
+				e.Record.Set("exclusions", excludedPackages)
+			}
+		}
 
 		return e.Next()
 	})

@@ -41,7 +41,7 @@ func LoadEnv(t *testing.T) {
 		t.Logf("Failed to open .env file: %v", err)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -65,7 +65,7 @@ func LoadEnv(t *testing.T) {
 
 		// Only set if not already set (allow override from shell)
 		if os.Getenv(key) == "" {
-			os.Setenv(key, value)
+			_ = os.Setenv(key, value)
 		}
 	}
 

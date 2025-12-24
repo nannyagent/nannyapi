@@ -81,7 +81,8 @@ func TestRealEpisodeValidation(t *testing.T) {
 
 		t.Logf("Response Type: %s", responseType)
 
-		if responseType == "diagnostic" {
+		switch responseType {
+		case "diagnostic":
 			// Check for required fields in diagnostic response
 
 			// Check Usage (token_usage)
@@ -117,7 +118,7 @@ func TestRealEpisodeValidation(t *testing.T) {
 			} else {
 				t.Errorf("Inference %d (diagnostic): Input is nil", i+1)
 			}
-		} else if responseType == "resolution" {
+		case "resolution":
 			// Check for required fields in resolution response
 			requiredFields := []string{"root_cause", "resolution_plan", "confidence", "ebpf_evidence"}
 			for _, field := range requiredFields {
@@ -127,7 +128,7 @@ func TestRealEpisodeValidation(t *testing.T) {
 					t.Logf("%s present", field)
 				}
 			}
-		} else {
+		default:
 			t.Logf("Unknown response_type: %s (skipping specific validation)", responseType)
 		}
 	}

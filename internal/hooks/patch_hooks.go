@@ -28,7 +28,11 @@ func RegisterPatchHooks(app core.App) {
 		if err != nil {
 			return err
 		}
-		defer reader.Close()
+		defer func() {
+			if cerr := reader.Close(); cerr != nil && err == nil {
+				err = cerr
+			}
+		}()
 
 		// Calculate SHA256
 		hasher := sha256.New()

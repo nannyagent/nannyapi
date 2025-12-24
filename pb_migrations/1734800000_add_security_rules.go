@@ -60,7 +60,10 @@ func init() {
 		usersCollection, _ := app.FindCollectionByNameOrId("users")
 		if usersCollection != nil {
 			usersCollection.UpdateRule = nil
-			app.Save(usersCollection)
+			err := app.Save(usersCollection)
+			if err != nil {
+				return err
+			}
 		}
 
 		agentsCollection, _ := app.FindCollectionByNameOrId("agents")
@@ -70,7 +73,10 @@ func init() {
 			agentsCollection.UpdateRule = nil
 			agentsCollection.DeleteRule = nil
 			agentsCollection.CreateRule = nil
-			app.Save(agentsCollection)
+			err := app.Save(agentsCollection)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil

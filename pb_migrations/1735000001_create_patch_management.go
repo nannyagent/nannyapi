@@ -203,7 +203,7 @@ func init() {
 				if err != nil {
 					return err
 				}
-				defer f.Close()
+				defer func() { _ = f.Close() }()
 
 				h := sha256.New()
 				if _, err := io.Copy(h, f); err != nil {
@@ -212,7 +212,7 @@ func init() {
 				hash := hex.EncodeToString(h.Sum(nil))
 
 				// Re-open file for upload
-				f.Seek(0, 0)
+				_, _ = f.Seek(0, 0)
 				content, err := io.ReadAll(f)
 				if err != nil {
 					return err

@@ -327,7 +327,7 @@ func handleCreateInvestigation(app core.App, c *core.RequestEvent, userID string
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, types.ErrorResponse{Error: "failed to read request"})
 	}
-	defer c.Request.Body.Close()
+	defer func() { _ = c.Request.Body.Close() }()
 
 	// Parse raw JSON to check for investigation_id
 	var bodyMap map[string]interface{}
@@ -443,6 +443,7 @@ func proxyToTensorZero(app core.App, c *core.RequestEvent, userID, investigation
 			if err := json.Unmarshal([]byte(content), &diagnosticResp); err == nil {
 				// Diagnostic response - no resolution plan yet
 				// This is normal for intermediate responses
+				_ = diagnosticResp // Suppress unused variable warning
 			}
 		}
 	}

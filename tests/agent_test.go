@@ -109,7 +109,10 @@ func TestAgentRegistration(t *testing.T) {
 	deviceCode.Set("user_id", userRecord.Id)
 	deviceCode.Set("consumed", false)
 	deviceCode.Set("expires_at", time.Now().Add(10*time.Minute))
-	app.Save(deviceCode)
+	err = app.Save(deviceCode)
+	if err != nil {
+		t.Fatalf("Failed to create device code: %v", err)
+	}
 	t.Log("Device code authorized")
 
 	// Step 3: Create agent
@@ -166,7 +169,10 @@ func TestAgentRegistration(t *testing.T) {
 	// Mark device code as consumed
 	deviceCode.Set("consumed", true)
 	deviceCode.Set("agent_id", agentRecord.Id)
-	app.Save(deviceCode)
+	err = app.Save(deviceCode)
+	if err != nil {
+		t.Fatalf("Failed to update device code: %v", err)
+	}
 
 	// Verify consumption
 	deviceCode, _ = app.FindRecordById(deviceCodesCollection, deviceCode.Id)
@@ -193,7 +199,10 @@ func TestAgentMetricsStorage(t *testing.T) {
 	userRecord := core.NewRecord(userCollection)
 	userRecord.Set("email", fmt.Sprintf("metrics-%d@example.com", time.Now().UnixNano()))
 	userRecord.Set("password", "TestPass123!")
-	app.Save(userRecord)
+	err := app.Save(userRecord)
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
 
 	// Create agent
 	agentCollection, _ := app.FindCollectionByNameOrId("agents")
@@ -210,7 +219,10 @@ func TestAgentMetricsStorage(t *testing.T) {
 	deviceCode.Set("consumed", true)
 	deviceCode.Set("user_id", userRecord.Id)
 	deviceCode.Set("expires_at", time.Now().Add(10*time.Minute))
-	app.Save(deviceCode)
+	err = app.Save(deviceCode)
+	if err != nil {
+		t.Fatalf("Failed to create device code: %v", err)
+	}
 
 	agentRecord := core.NewRecord(agentCollection)
 	agentRecord.Set("user_id", userRecord.Id)
@@ -297,7 +309,10 @@ func TestAgentMetricsStorage(t *testing.T) {
 
 	// Update agent last_seen
 	agentRecord.Set("last_seen", time.Now())
-	app.Save(agentRecord)
+	err = app.Save(agentRecord)
+	if err != nil {
+		t.Fatalf("Failed to update agent last_seen: %v", err)
+	}
 	t.Log("Agent last_seen updated")
 }
 
@@ -318,7 +333,10 @@ func TestExpiredDeviceCodeValidation(t *testing.T) {
 	record.Set("authorized", true)
 	record.Set("consumed", false)
 	record.Set("expires_at", time.Now().Add(-10*time.Minute))
-	app.Save(record)
+	err = app.Save(record)
+	if err != nil {
+		t.Fatalf("Failed to create expired device code: %v", err)
+	}
 	t.Log("Created expired device code")
 
 	// Verify it's in the past
@@ -347,7 +365,10 @@ func TestConsumedDeviceCodeValidation(t *testing.T) {
 	record.Set("consumed", true)
 	record.Set("agent_id", "some-agent-id")
 	record.Set("expires_at", time.Now().Add(10*time.Minute))
-	app.Save(record)
+	err = app.Save(record)
+	if err != nil {
+		t.Fatalf("Failed to create consumed device code: %v", err)
+	}
 	t.Log("Created consumed device code")
 
 	// Verify it's consumed
@@ -377,7 +398,10 @@ func TestCleanupExpiredCodes(t *testing.T) {
 	expiredCode.Set("authorized", false)
 	expiredCode.Set("consumed", false)
 	expiredCode.Set("expires_at", time.Now().Add(-25*time.Hour))
-	app.Save(expiredCode)
+	err = app.Save(expiredCode)
+	if err != nil {
+		t.Fatalf("Failed to create expired device code: %v", err)
+	}
 
 	// Create valid code
 	validCode := core.NewRecord(collection)
@@ -509,7 +533,10 @@ func TestAgentStatusValidation(t *testing.T) {
 	userRecord := core.NewRecord(userCollection)
 	userRecord.Set("email", fmt.Sprintf("status-%d@example.com", time.Now().UnixNano()))
 	userRecord.Set("password", "TestPass123!")
-	app.Save(userRecord)
+	err := app.Save(userRecord)
+	if err != nil {
+		t.Fatalf("Failed to create user record: %v", err)
+	}
 
 	agentCollection, _ := app.FindCollectionByNameOrId("agents")
 	if agentCollection == nil {

@@ -71,7 +71,7 @@ func (c *Client) CallChatCompletion(messages []types.ChatMessage, model types.Te
 	if err != nil {
 		return nil, fmt.Errorf("failed to call TensorZero API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -108,7 +108,7 @@ func (c *Client) RetrieveEpisode(episodeID string) (*map[string]interface{}, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to call TensorZero API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -145,7 +145,7 @@ func (c *Client) RetrieveInference(inferenceID string) (*map[string]interface{},
 	if err != nil {
 		return nil, fmt.Errorf("failed to call TensorZero API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {

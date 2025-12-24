@@ -16,10 +16,6 @@ import (
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
 
-func ptr(s string) *string {
-	return &s
-}
-
 func TestPatchScriptRelationAndDownload(t *testing.T) {
 	app, err := tests.NewTestApp()
 	if err != nil {

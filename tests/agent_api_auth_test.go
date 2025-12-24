@@ -55,7 +55,10 @@ func TestAgentInvestigationAuth(t *testing.T) {
 	deviceCode.Set("device_code", "dev-123")
 	deviceCode.Set("user_code", "USR123")
 	deviceCode.Set("expires_at", time.Now().Add(time.Hour))
-	app.Save(deviceCode)
+	err = app.Save(deviceCode)
+	if err != nil {
+		t.Fatalf("Failed to create device code: %v", err)
+	}
 
 	agent := core.NewRecord(agentsCollection)
 	agent.Set("user_id", user.Id)

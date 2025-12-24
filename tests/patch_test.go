@@ -242,14 +242,14 @@ func TestScriptChecksum(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get filesystem: %v", err)
 	}
-	defer fs.Close()
+	defer func() { _ = fs.Close() }()
 
 	path := retrievedScript.BaseFilesPath() + "/" + retrievedScript.GetString("file")
-	fileReader, err := fs.GetFile(path)
+	fileReader, err := fs.GetReader(path)
 	if err != nil {
 		t.Fatalf("Failed to read file from storage: %v", err)
 	}
-	defer fileReader.Close()
+	defer func() { _ = fileReader.Close() }()
 
 	h2 := sha256.New()
 	if _, err := io.Copy(h2, fileReader); err != nil {
@@ -290,7 +290,10 @@ func TestPatchHook(t *testing.T) {
 	script.Set("sha256", "hash")
 	f, _ := filesystem.NewFileFromBytes([]byte("echo hook"), "hook.sh")
 	script.Set("file", f)
-	app.Save(script)
+	err = app.Save(script)
+	if err != nil {
+		t.Fatalf("Failed to save script: %v", err)
+	}
 
 	// Create patch operation directly (bypassing handler)
 	patchCollection, _ := app.FindCollectionByNameOrId("patch_operations")

@@ -29,7 +29,10 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 	user.Set("password", "Test123456!@#")
 	user.Set("name", "Portal User")
 	user.SetVerified(true)
-	app.Save(user)
+	err := app.Save(user)
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
 
 	agent := createTestAgent(app, t, user.Id, "portal-real-flow")
 	userID := user.Id
@@ -74,7 +77,7 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 
 		// Add investigation_id to payload
 		var payloadMap map[string]interface{}
-		json.Unmarshal(payloadBytes, &payloadMap)
+		_ = json.Unmarshal(payloadBytes, &payloadMap)
 		payloadMap["investigation_id"] = investigationID
 		bodyBytes, _ := json.Marshal(payloadMap)
 
@@ -97,7 +100,6 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 
 		// This is what TensorZero would return
 		tzResponse := types.TensorZeroResponse{
-			ID:        "resp_001",
 			EpisodeID: "019b403f-74a1-7201-a70e-1eacd1fc6e63", // Real episode format
 			Choices: []types.TensorZeroChoice{
 				{
@@ -128,9 +130,6 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 					},
 				},
 			},
-			Created: time.Now().Unix(),
-			Model:   "tensorzero::function_name::diagnose_and_heal::variant_name::v1",
-			Object:  "chat.completion",
 			Usage: types.TokenUsage{
 				PromptTokens:     1500,
 				CompletionTokens: 450,
@@ -183,7 +182,7 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 
 		payloadBytes, _ := json.Marshal(followUpPayload)
 		var payloadMap map[string]interface{}
-		json.Unmarshal(payloadBytes, &payloadMap)
+		_ = json.Unmarshal(payloadBytes, &payloadMap)
 		payloadMap["investigation_id"] = investigationID
 		bodyBytes, _ := json.Marshal(payloadMap)
 
@@ -230,7 +229,7 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 
 		// Parse resolution_plan from response
 		var resolutionResp types.ResolutionResponse
-		json.Unmarshal([]byte(finalResponse.Choices[0].Message.Content), &resolutionResp)
+		_ = json.Unmarshal([]byte(finalResponse.Choices[0].Message.Content), &resolutionResp)
 
 		if resolutionResp.ResponseType != "resolution" {
 			t.Fatalf("Expected resolution response type, got %s", resolutionResp.ResponseType)
@@ -284,7 +283,10 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 	user.Set("password", "Test123456!@#")
 	user.Set("name", "Agent Owner")
 	user.SetVerified(true)
-	app.Save(user)
+	err := app.Save(user)
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
 
 	agent := createTestAgent(app, t, user.Id, "agent-real-flow")
 	userID := user.Id
@@ -325,7 +327,10 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 
 		payloadBytes, _ := json.Marshal(memoryPayload)
 		var payloadMap map[string]interface{}
-		json.Unmarshal(payloadBytes, &payloadMap)
+		err := json.Unmarshal(payloadBytes, &payloadMap)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal memory payload: %v", err)
+		}
 		payloadMap["investigation_id"] = investigationID
 		bodyBytes, _ := json.Marshal(payloadMap)
 
@@ -403,7 +408,10 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 
 		payloadBytes, _ := json.Marshal(heapPayload)
 		var payloadMap map[string]interface{}
-		json.Unmarshal(payloadBytes, &payloadMap)
+		err := json.Unmarshal(payloadBytes, &payloadMap)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal heap payload: %v", err)
+		}
 		payloadMap["investigation_id"] = investigationID
 		bodyBytes, _ := json.Marshal(payloadMap)
 
@@ -445,13 +453,16 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 		}
 
 		var resolutionResp types.ResolutionResponse
-		json.Unmarshal([]byte(finalResponse.Choices[0].Message.Content), &resolutionResp)
+		err := json.Unmarshal([]byte(finalResponse.Choices[0].Message.Content), &resolutionResp)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal resolution response: %v", err)
+		}
 
 		if resolutionResp.ResponseType != "resolution" {
 			t.Fatalf("Expected resolution, got %s", resolutionResp.ResponseType)
 		}
 
-		err := investigations.TrackInvestigationResponse(app, investigationID, "", resolutionResp.ResolutionPlan)
+		err = investigations.TrackInvestigationResponse(app, investigationID, "", resolutionResp.ResolutionPlan)
 		if err != nil {
 			t.Fatalf("Failed to track resolution: %v", err)
 		}

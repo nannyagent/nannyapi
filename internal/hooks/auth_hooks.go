@@ -77,8 +77,6 @@ func OnUserUpdate(app App) func(*core.RecordEvent) error {
 	}
 }
 
-
-
 // OnAuthWithPasswordRequest checks account lockout and tracks failures
 func OnAuthWithPasswordRequest(app App) func(*core.RecordAuthWithPasswordRequestEvent) error {
 	return func(e *core.RecordAuthWithPasswordRequestEvent) error {
@@ -101,7 +99,10 @@ func OnAuthWithPasswordRequest(app App) func(*core.RecordAuthWithPasswordRequest
 		// If auth failed AND we found a user, track the failure
 		if nextErr != nil && userId != "" {
 			// Track failed attempt (this may lock the account)
-			security.TrackFailedAuthAttempt(app, userId)
+			err := security.TrackFailedAuthAttempt(app, userId)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nextErr

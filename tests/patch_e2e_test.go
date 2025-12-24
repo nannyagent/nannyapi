@@ -105,7 +105,9 @@ func TestPatchEndToEndFlow(t *testing.T) {
 	script.Set("sha256", expectedHash)
 	f, _ := filesystem.NewFileFromBytes(scriptContent, "script.sh")
 	script.Set("file", f)
-	testApp.Save(script)
+	if err := testApp.Save(script); err != nil {
+		t.Fatalf("Failed to save script: %v", err)
+	}
 
 	// --- Scenario 1: Agent reports metrics (Prerequisite) ---
 	(&tests.ApiScenario{
@@ -158,7 +160,7 @@ func TestPatchEndToEndFlow(t *testing.T) {
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
 			// Extract Patch ID
 			var resp map[string]interface{}
-			json.NewDecoder(res.Body).Decode(&resp)
+			_ = json.NewDecoder(res.Body).Decode(&resp)
 			patchID = resp["id"].(string)
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
@@ -189,15 +191,15 @@ func TestPatchEndToEndFlow(t *testing.T) {
 	// --- Scenario 4: Agent uploads results (Success) ---
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	writer.WriteField("exit_code", "0")
+	_ = writer.WriteField("exit_code", "0")
 
 	part, _ := writer.CreateFormFile("stdout_file", "stdout.log")
-	part.Write([]byte("Dry run successful\nPackage A: 1.0 -> 1.1"))
+	_, _ = part.Write([]byte("Dry run successful\nPackage A: 1.0 -> 1.1"))
 
 	part, _ = writer.CreateFormFile("stderr_file", "stderr.log")
-	part.Write([]byte(""))
+	_, _ = part.Write([]byte(""))
 
-	writer.Close()
+	_ = writer.Close()
 
 	(&tests.ApiScenario{
 		Name:   "Agent uploads results (Success)",
@@ -251,7 +253,7 @@ func TestPatchEndToEndFlow(t *testing.T) {
 		},
 		AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
 			var resp map[string]interface{}
-			json.NewDecoder(res.Body).Decode(&resp)
+			_ = json.NewDecoder(res.Body).Decode(&resp)
 			applyPatchID = resp["id"].(string)
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
@@ -263,15 +265,15 @@ func TestPatchEndToEndFlow(t *testing.T) {
 	// --- Scenario 6: Agent uploads results (Failure) ---
 	bodyFail := &bytes.Buffer{}
 	writerFail := multipart.NewWriter(bodyFail)
-	writerFail.WriteField("exit_code", "1")
+	_ = writerFail.WriteField("exit_code", "1")
 
 	partFail, _ := writerFail.CreateFormFile("stdout_file", "stdout.log")
-	partFail.Write([]byte("Applying update..."))
+	_, _ = partFail.Write([]byte("Applying update..."))
 
 	partFail, _ = writerFail.CreateFormFile("stderr_file", "stderr.log")
-	partFail.Write([]byte("Error: Package conflict"))
+	_, _ = partFail.Write([]byte("Error: Package conflict"))
 
-	writerFail.Close()
+	_ = writerFail.Close()
 
 	(&tests.ApiScenario{
 		Name:   "Agent uploads results (Failure)",

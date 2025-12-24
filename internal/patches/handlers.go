@@ -312,14 +312,14 @@ func HandlePatchResult(app core.App, c *core.RequestEvent) error {
 	// We need to import "github.com/pocketbase/pocketbase/tools/filesystem"
 
 	if f, header, err := c.Request.FormFile("stdout_file"); err == nil {
-		f.Close()
+		_ = f.Close()
 		if file, err := filesystem.NewFileFromMultipart(header); err == nil {
 			record.Set("stdout_file", file)
 		}
 	}
 
 	if f, header, err := c.Request.FormFile("stderr_file"); err == nil {
-		f.Close()
+		_ = f.Close()
 		if file, err := filesystem.NewFileFromMultipart(header); err == nil {
 			record.Set("stderr_file", file)
 		}

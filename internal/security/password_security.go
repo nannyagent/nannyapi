@@ -115,7 +115,10 @@ func TrackPasswordChange(app App, userId string, password string, success bool) 
 		rec.Set("user_agent", "pocketbase")
 		rec.Set("changed_by_agent", false)
 		rec.Set("created", time.Now().Format(time.RFC3339))
-		app.Save(rec)
+		err = app.Save(rec)
+		if err != nil {
+			fmt.Printf("Warning: failed to save password change history: %v\n", err)
+		}
 	}
 
 	// Track attempt
@@ -125,7 +128,10 @@ func TrackPasswordChange(app App, userId string, password string, success bool) 
 		rec.Set("user_id", userId)
 		rec.Set("ip_address", "127.0.0.1")
 		rec.Set("success", success)
-		app.Save(rec)
+		err = app.Save(rec)
+		if err != nil {
+			fmt.Printf("Warning: failed to save password change attempt: %v\n", err)
+		}
 	}
 }
 

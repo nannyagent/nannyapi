@@ -580,7 +580,11 @@ func CleanupExpiredDeviceCodes(app core.App) {
 
 func generateID() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	_, err := rand.Read(b)
+	if err != nil {
+		// handle error appropriately, for example:
+		panic("failed to generate random ID")
+	}
 	return hex.EncodeToString(b)
 }
 

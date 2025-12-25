@@ -25,3 +25,12 @@ setup
 go.work
 go.work.sum
 nannyapi
+bin/
+coverage.txt
+
+# For coding agent
+CODE-AGENT.md
+
+# Pocketbase related
+pb_data/
+.env

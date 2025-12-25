@@ -1,0 +1,68 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: nannyapi
+    binary: nannyapi
+    main: .
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+    env:
+      - CGO_ENABLED=0
+
+archives:
+  - id: nannyapi
+    formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version}}_{{ .Os }}_{{ .Arch }}
+    files:
+      - LICENSE
+      - README.md
+      - nannyapi.service
+      - install.sh
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'README'
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: nannyagent
+    name: nannyapi
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## nannyapi {{.Tag}}
+    
+    Install with:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/nannyagent/nannyapi/main/install.sh | bash
+    ```
+  footer: |
+    **Full Changelog**: https://github.com/nannyagent/nannyapi/compare/{{.PreviousTag}}...{{.Tag}}
+
+snapshot:
+  version_template: "{{ .Version }}-SNAPSHOT-{{.ShortCommit}}"

@@ -36,7 +36,7 @@ The application uses environment variables for configuration. Required variables
 
 ## API Endpoints
 
-The API endpoints are documented using Swagger. All API interactions are logged for audit purposes.
+The API endpoints are documented. All API interactions are logged for audit purposes.
 
 ### Authentication Endpoints
 - `POST /github/login` - GitHub OAuth login

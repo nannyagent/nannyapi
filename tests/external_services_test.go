@@ -33,7 +33,12 @@ func TestClickHouseConnectivity(t *testing.T) {
 // TestRealEpisodeValidation verifies the content of a specific real episode
 // ensuring that all expected fields are present and correctly typed.
 func TestRealEpisodeValidation(t *testing.T) {
+
 	LoadEnv(t)
+
+	if os.Getenv("CLICKHOUSE_URL") == "" {
+		t.Skip("CLICKHOUSE_URL not set")
+	}
 
 	client := clickhouse.NewClient()
 	episodeID := "019b403f-74a1-7201-a70e-1eacd1fc6e63"
@@ -138,6 +143,10 @@ func TestRealEpisodeValidation(t *testing.T) {
 // using the credentials provided in the .env file.
 func TestTensorZeroConnectivity(t *testing.T) {
 	LoadEnv(t)
+
+	if os.Getenv("CLICKHOUSE_URL") == "" {
+		t.Skip("CLICKHOUSE_URL not set")
+	}
 
 	client := tensorzero.NewClient()
 

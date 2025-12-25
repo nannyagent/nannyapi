@@ -124,8 +124,6 @@ func TestPatchScriptRelationAndDownload(t *testing.T) {
 	if savedScriptURL == "" {
 		t.Errorf("script_url is empty in the record")
 	}
-	fmt.Printf("Patch Operation JSON: %v\n", record)
-	fmt.Printf("Script URL: %s\n", savedScriptURL)
 
 	// Now try to download
 	agentToken, _ := agent.NewAuthToken()

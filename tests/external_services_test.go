@@ -11,12 +11,20 @@ import (
 // TestClickHouseConnectivity verifies that the application can connect to ClickHouse
 // using the credentials provided in the .env file.
 func TestClickHouseConnectivity(t *testing.T) {
+	// Check if CLICKHOUSE_URL is already set in environment
 	if os.Getenv("CLICKHOUSE_URL") == "" {
-		t.Skip("CLICKHOUSE_URL not set")
+		// Check if .env file exists before calling LoadEnv
+		if _, err := os.Stat(".env"); os.IsNotExist(err) {
+			// No .env file, skip the test
+			t.Skip("CLICKHOUSE_URL not set and no .env file")
+		}
+		// .env exists, try to load it
+		LoadEnv(t)
+		// Check again after loading .env
+		if os.Getenv("CLICKHOUSE_URL") == "" {
+			t.Skip("CLICKHOUSE_URL not set")
+		}
 	}
-
-	LoadEnv(t)
-
 	client := clickhouse.NewClient()
 
 	// Try to fetch inferences for a non-existent episode.
@@ -33,12 +41,20 @@ func TestClickHouseConnectivity(t *testing.T) {
 // TestRealEpisodeValidation verifies the content of a specific real episode
 // ensuring that all expected fields are present and correctly typed.
 func TestRealEpisodeValidation(t *testing.T) {
-
+	// Check if CLICKHOUSE_URL is already set in environment
 	if os.Getenv("CLICKHOUSE_URL") == "" {
-		t.Skip("CLICKHOUSE_URL not set")
+		// Check if .env file exists before calling LoadEnv
+		if _, err := os.Stat(".env"); os.IsNotExist(err) {
+			// No .env file, skip the test
+			t.Skip("CLICKHOUSE_URL not set and no .env file")
+		}
+		// .env exists, try to load it
+		LoadEnv(t)
+		// Check again after loading .env
+		if os.Getenv("CLICKHOUSE_URL") == "" {
+			t.Skip("CLICKHOUSE_URL not set")
+		}
 	}
-
-	LoadEnv(t)
 
 	client := clickhouse.NewClient()
 	episodeID := "019b403f-74a1-7201-a70e-1eacd1fc6e63"
@@ -142,12 +158,20 @@ func TestRealEpisodeValidation(t *testing.T) {
 // TestTensorZeroConnectivity verifies that the application can connect to TensorZero
 // using the credentials provided in the .env file.
 func TestTensorZeroConnectivity(t *testing.T) {
-
+	// Check if CLICKHOUSE_URL is already set in environment
 	if os.Getenv("CLICKHOUSE_URL") == "" {
-		t.Skip("CLICKHOUSE_URL not set")
+		// Check if .env file exists before calling LoadEnv
+		if _, err := os.Stat(".env"); os.IsNotExist(err) {
+			// No .env file, skip the test
+			t.Skip("CLICKHOUSE_URL not set and no .env file")
+		}
+		// .env exists, try to load it
+		LoadEnv(t)
+		// Check again after loading .env
+		if os.Getenv("CLICKHOUSE_URL") == "" {
+			t.Skip("CLICKHOUSE_URL not set")
+		}
 	}
-
-	LoadEnv(t)
 
 	client := tensorzero.NewClient()
 

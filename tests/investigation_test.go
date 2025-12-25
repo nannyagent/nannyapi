@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"os"
 	"testing"
 
 	"github.com/nannyagent/nannyapi/internal/hooks"
@@ -277,7 +278,20 @@ func TestUpdateInvestigationStatus(t *testing.T) {
 
 // TestSetEpisodeID tests setting episode ID for investigation
 func TestSetEpisodeID(t *testing.T) {
-	LoadEnv(t)
+	// Check if CLICKHOUSE_URL is already set in environment
+	if os.Getenv("CLICKHOUSE_URL") == "" {
+		// Check if .env file exists before calling LoadEnv
+		if _, err := os.Stat(".env"); os.IsNotExist(err) {
+			// No .env file, skip the test
+			t.Skip("CLICKHOUSE_URL not set and no .env file")
+		}
+		// .env exists, try to load it
+		LoadEnv(t)
+		// Check again after loading .env
+		if os.Getenv("CLICKHOUSE_URL") == "" {
+			t.Skip("CLICKHOUSE_URL not set")
+		}
+	}
 	app := setupInvestigationTestApp(t)
 	defer app.Cleanup()
 

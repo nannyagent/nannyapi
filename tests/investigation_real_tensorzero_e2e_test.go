@@ -2,6 +2,7 @@ package tests
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -97,6 +98,20 @@ func TestPortalInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 	// Step 3: Simulate TensorZero response with episode_id
 	t.Run("Step3_ParseTensorZeroResponseAndTrackEpisode", func(t *testing.T) {
 		t.Logf("Simulating TensorZero response with episode_id...")
+		// Check if CLICKHOUSE_URL is already set in environment
+		if os.Getenv("CLICKHOUSE_URL") == "" {
+			// Check if .env file exists before calling LoadEnv
+			if _, err := os.Stat(".env"); os.IsNotExist(err) {
+				// No .env file, skip the test
+				t.Skip("CLICKHOUSE_URL not set and no .env file")
+			}
+			// .env exists, try to load it
+			LoadEnv(t)
+			// Check again after loading .env
+			if os.Getenv("CLICKHOUSE_URL") == "" {
+				t.Skip("CLICKHOUSE_URL not set")
+			}
+		}
 
 		// This is what TensorZero would return
 		tzResponse := types.TensorZeroResponse{
@@ -340,6 +355,20 @@ func TestAgentInitiatedInvestigationRealTensorZeroFlow(t *testing.T) {
 
 	// Step 3: Simulate TensorZero episode response
 	t.Run("Step3_ParseEpisodeIDAndTrack", func(t *testing.T) {
+		// Check if CLICKHOUSE_URL is already set in environment
+		if os.Getenv("CLICKHOUSE_URL") == "" {
+			// Check if .env file exists before calling LoadEnv
+			if _, err := os.Stat(".env"); os.IsNotExist(err) {
+				// No .env file, skip the test
+				t.Skip("CLICKHOUSE_URL not set and no .env file")
+			}
+			// .env exists, try to load it
+			LoadEnv(t)
+			// Check again after loading .env
+			if os.Getenv("CLICKHOUSE_URL") == "" {
+				t.Skip("CLICKHOUSE_URL not set")
+			}
+		}
 		tzResponse := types.TensorZeroResponse{
 			ID:        "resp_mem_001",
 			EpisodeID: "019b404a-8f2c-7401-b70e-1eacd2fd8e64",

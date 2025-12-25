@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/nannyagent/nannyapi/internal/investigations"
@@ -44,7 +45,20 @@ func setupTestUserAndAgent(t *testing.T, app *tests.TestApp) (string, string) {
 // 5. Agent sends final response with resolution_plan
 // 6. API marks investigation complete
 func TestInvestigationProxyWorkflow(t *testing.T) {
-	LoadEnv(t)
+	// Check if CLICKHOUSE_URL is already set in environment
+	if os.Getenv("CLICKHOUSE_URL") == "" {
+		// Check if .env file exists before calling LoadEnv
+		if _, err := os.Stat(".env"); os.IsNotExist(err) {
+			// No .env file, skip the test
+			t.Skip("CLICKHOUSE_URL not set and no .env file")
+		}
+		// .env exists, try to load it
+		LoadEnv(t)
+		// Check again after loading .env
+		if os.Getenv("CLICKHOUSE_URL") == "" {
+			t.Skip("CLICKHOUSE_URL not set")
+		}
+	}
 	app := setupTestApp(t)
 	defer app.Cleanup()
 
@@ -303,7 +317,20 @@ func TestInvestigationProxyAgentInitiated(t *testing.T) {
 // TestInvestigationWithClickHouseEnrichment tests fetching inferences from ClickHouse
 // When investigation is complete and has episode_id, GetInvestigation enriches response
 func TestInvestigationWithClickHouseEnrichment(t *testing.T) {
-	LoadEnv(t)
+	// Check if CLICKHOUSE_URL is already set in environment
+	if os.Getenv("CLICKHOUSE_URL") == "" {
+		// Check if .env file exists before calling LoadEnv
+		if _, err := os.Stat(".env"); os.IsNotExist(err) {
+			// No .env file, skip the test
+			t.Skip("CLICKHOUSE_URL not set and no .env file")
+		}
+		// .env exists, try to load it
+		LoadEnv(t)
+		// Check again after loading .env
+		if os.Getenv("CLICKHOUSE_URL") == "" {
+			t.Skip("CLICKHOUSE_URL not set")
+		}
+	}
 	app := setupTestApp(t)
 	defer app.Cleanup()
 

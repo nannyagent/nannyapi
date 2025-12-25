@@ -24,6 +24,7 @@ setup
 *.dylib
 go.work
 go.work.sum
+<<<<<<< HEAD
 nannyapi
 bin/
 coverage.txt
@@ -34,3 +35,6 @@ CODE-AGENT.md
 # Pocketbase related
 pb_data/
 .env
+=======
+nannyapi
+>>>>>>> main

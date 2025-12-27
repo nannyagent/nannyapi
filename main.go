@@ -30,6 +30,9 @@ func main() {
 	hooks.RegisterInvestigationHooks(app)
 	hooks.RegisterPatchHooks(app)
 
+	// Register proxmox hooks
+	hooks.RegisterProxmoxHooks(app)
+
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}

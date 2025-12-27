@@ -35,6 +35,32 @@ func init() {
 			Required: true,
 		})
 
+		// Add user_id and agent_id relations
+		usersCollection, err := app.FindCollectionByNameOrId("users")
+		if err != nil {
+			return err
+		}
+		agentsCollection, err := app.FindCollectionByNameOrId("agents")
+		if err != nil {
+			return err
+		}
+
+		proxmoxClusterCollection.Fields.Add(&core.RelationField{
+			Name:          "user_id",
+			Required:      false,
+			CollectionId:  usersCollection.Id,
+			CascadeDelete: false,
+			MaxSelect:     1,
+		})
+
+		proxmoxClusterCollection.Fields.Add(&core.RelationField{
+			Name:          "agent_id",
+			Required:      false,
+			CollectionId:  agentsCollection.Id,
+			CascadeDelete: false,
+			MaxSelect:     1,
+		})
+
 		// API Rules
 		proxmoxClusterCollection.ListRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
 		proxmoxClusterCollection.ViewRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
@@ -47,10 +73,6 @@ func init() {
 		}
 
 		// create proxmox_node collections now
-		agentsCollection, err := app.FindCollectionByNameOrId("agents")
-		if err != nil {
-			return err
-		}
 
 		proxmoxNodeCollection := core.NewBaseCollection("proxmox_nodes")
 
@@ -59,6 +81,14 @@ func init() {
 			Required:      true,
 			CollectionId:  agentsCollection.Id,
 			CascadeDelete: true,
+			MaxSelect:     1,
+		})
+
+		proxmoxNodeCollection.Fields.Add(&core.RelationField{
+			Name:          "user_id",
+			Required:      false,
+			CollectionId:  usersCollection.Id,
+			CascadeDelete: false,
 			MaxSelect:     1,
 		})
 
@@ -128,6 +158,14 @@ func init() {
 		})
 
 		proxmoxLxcCollection.Fields.Add(&core.RelationField{
+			Name:          "user_id",
+			Required:      false,
+			CollectionId:  usersCollection.Id,
+			CascadeDelete: false,
+			MaxSelect:     1,
+		})
+
+		proxmoxLxcCollection.Fields.Add(&core.RelationField{
 			Name:          "cluster_id",
 			Required:      false,
 			CollectionId:  proxmoxClusterCollection.Id,
@@ -137,7 +175,7 @@ func init() {
 
 		proxmoxLxcCollection.Fields.Add(&core.RelationField{
 			Name:          "node_id",
-			Required:      false,
+			Required:      true,
 			CollectionId:  proxmoxNodeCollection.Id,
 			CascadeDelete: false,
 			MaxSelect:     1,
@@ -197,6 +235,14 @@ func init() {
 		})
 
 		proxmoxQemuCollection.Fields.Add(&core.RelationField{
+			Name:          "user_id",
+			Required:      false,
+			CollectionId:  usersCollection.Id,
+			CascadeDelete: false,
+			MaxSelect:     1,
+		})
+
+		proxmoxQemuCollection.Fields.Add(&core.RelationField{
 			Name:          "cluster_id",
 			Required:      false,
 			CollectionId:  proxmoxClusterCollection.Id,
@@ -206,7 +252,7 @@ func init() {
 
 		proxmoxQemuCollection.Fields.Add(&core.RelationField{
 			Name:          "node_id",
-			Required:      false,
+			Required:      true,
 			CollectionId:  proxmoxNodeCollection.Id,
 			CascadeDelete: false,
 			MaxSelect:     1,
@@ -237,7 +283,7 @@ func init() {
 			Required: true,
 		})
 
-		proxmoxQemuCollection.Fields.Add(&core.NumberField{
+		proxmoxQemuCollection.Fields.Add(&core.TextField{
 			Name:     "host_cpu",
 			Required: true,
 		})

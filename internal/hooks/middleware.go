@@ -39,8 +39,20 @@ func LoadAuthContext(app core.App) func(next func(*core.RequestEvent) error) fun
 func RequireAuth() func(next func(*core.RequestEvent) error) func(*core.RequestEvent) error {
 	return func(next func(*core.RequestEvent) error) func(*core.RequestEvent) error {
 		return func(e *core.RequestEvent) error {
-			if e.Get("authRecord") == nil {
+			if e.Auth == nil {
 				return e.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+			}
+			return next(e)
+		}
+	}
+}
+
+// RequireAuthCollection returns a middleware that requires authentication for a specific collection
+func RequireAuthCollection(collectionName string) func(next func(*core.RequestEvent) error) func(*core.RequestEvent) error {
+	return func(next func(*core.RequestEvent) error) func(*core.RequestEvent) error {
+		return func(e *core.RequestEvent) error {
+			if e.Auth == nil || e.Auth.Collection().Name != collectionName {
+				return e.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			}
 			return next(e)
 		}

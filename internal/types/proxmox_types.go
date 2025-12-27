@@ -1,58 +1,66 @@
 package types
 
-// Below are generated from pvesh get /cluster/status --output-format json | jq
+// ProxmoxCluster represents the data structure for a Proxmox cluster.
+// Ingestion is based on `pvesh get /cluster/status --output-format json`
 type ProxmoxCluster struct {
-	ID          string `json:"id" db:"id"`                       // PocketBase generated UUID
-	ClusterName string `json:"cluster_name" db:"cluster_name"`   // name of the proxmox cluster
-	Nodes       int    `json:"nodes" db:"nodes"`                 // number of nodes
-	Quorate     int    `json:"quorate" db:"quorate"`             // Quorate
-	Version     int    `json:"version" db:"version"`             // Version of cluster config
-	ClusterID   string `json:"px_cluster_id" db:"px_cluster_id"` // id of the proxmox cluster
+	ID          string `json:"id,omitempty" db:"id"`
+	ClusterName string `json:"name" db:"cluster_name"`
+	Nodes       int    `json:"nodes" db:"nodes"`
+	Quorate     int    `json:"quorate" db:"quorate"`
+	Version     int    `json:"version" db:"version"`
+	ClusterID   string `json:"px_cluster_id" db:"px_cluster_id"`
 }
 
+// ProxmoxNode represents a node in a Proxmox cluster.
+// Ingestion is based on `pvesh get /cluster/status --output-format json`
+// and `pvesh get /nodes/{node}/status --output-format json`
 type ProxmoxNode struct {
-	ID         string `json:"id" db:"id"`                   // PocketBase generated UUID
-	AgentID    string `json:"agent_id" db:"agent_id"`       // Target agent
-	ClusterID  string `json:"cluster_id" db:"cluster_id"`   // ID of the proxmox cluster
-	IP         string `json:"ip" db:"ip"`                   // IP of the node
-	Level      int    `json:"level" db:"level"`             // Level
-	Local      int    `json:"local" db:"local"`             // Local
-	Name       string `json:"name" db:"name"`               // name of the proxmox node
-	NodeID     int    `json:"px_node_id" db:"px_node_id"`   // Proxmox id of the node
-	Online     int    `json:"online" db:"online"`           // whether node is online
-	PVEVersion int    `json:"pve_version" db:"pve_version"` // Version of proxmox node
+	ID         string `json:"id,omitempty" db:"id"`
+	AgentID    string `json:"agent_id" db:"agent_id"`
+	ClusterID  string `json:"cluster_id,omitempty" db:"cluster_id"`
+	IP         string `json:"ip" db:"ip"`
+	Level      string `json:"level" db:"level"`
+	Local      int    `json:"local" db:"local"`
+	Name       string `json:"name" db:"name"`
+	NodeID     int    `json:"nodeid" db:"px_node_id"`
+	Online     int    `json:"online" db:"online"`
+	PVEVersion string `json:"pveversion" db:"pve_version"`
 }
 
-// Below are generated from pvesh get /cluster/resources --output-format json | jq
-// and pvesh get /nodes/<node-id>/lxc/<lxc-id>/config --output-format json | jq
+// ProxmoxLXC represents a Linux Container in Proxmox.
+// Ingestion is based on `pvesh get /cluster/resources --output-format json`
+// and `pvesh get /nodes/{node}/lxc/{vmid}/config --output-format json`
 type ProxmoxLXC struct {
-	ID        string `json:"id" db:"id"`                 // PocketBase generated UUID
-	AgentID   string `json:"agent_id" db:"agent_id"`     // Target agent
-	ClusterID string `json:"cluster_id" db:"cluster_id"` // ID of the proxmox cluster
-	NodeID    string `json:"node_id" db:"node_id"`       // ID of the proxmox node
-	Name      string `json:"name" db:"name"`             // name of the proxmox LXC
-	LXCID     string `json:"lxc_id" db:"lxc_id"`         // ID of the proxmox LXC
-	Status    string `json:"status" db:"status"`         // Status of the LXC
-	OSType    string `json:"ostype" db:"ostype"`         // OSTYpe of the LXC
-	Uptime    string `json:"uptime" db:"uptime"`         // uptime
-	VmID      int    `json:"vmid" db:"vmid"`             // VMID
+	ID        string `json:"id,omitempty" db:"id"`
+	AgentID   string `json:"agent_id" db:"agent_id"`
+	ClusterID string `json:"cluster_id,omitempty" db:"cluster_id"`
+	NodeID    string `json:"node_id" db:"node_id"`
+	Name      string `json:"name" db:"name"`
+	LXCID     string `json:"lxc_id" db:"lxc_id"` // from 'id' field in resources
+	Status    string `json:"status" db:"status"`
+	OSType    string `json:"ostype" db:"ostype"`
+	Uptime    int    `json:"uptime" db:"uptime"`
+	VMID      int    `json:"vmid" db:"vmid"`
+	Node      string `json:"node"` // Used for matching
 }
 
-// Below are generated from pvesh get /cluster/resources --output-format json | jq
-// and pvesh get /nodes/<node-id>/qemu/<qemu-id>/config --output-format json | jq
+// ProxmoxQemu represents a QEMU/KVM virtual machine in Proxmox.
+// Ingestion is based on `pvesh get /cluster/resources --output-format json`
+// and `pvesh get /nodes/{node}/qemu/{vmid}/config --output-format json`
 type ProxmoxQemu struct {
-	ID        string `json:"id" db:"id"`                 // PocketBase generated UUID
-	AgentID   string `json:"agent_id" db:"agent_id"`     // Target agent
-	ClusterID string `json:"cluster_id" db:"cluster_id"` // ID of the proxmox cluster
-	NodeID    string `json:"node_id" db:"node_id"`       // ID of the proxmox node
-	Name      string `json:"name" db:"name"`             // name of the proxmox VM
-	QemuID    string `json:"qemu_id" db:"qemu_id"`       // ID of the proxmox VM
-	Status    string `json:"status" db:"status"`         // Status of the VM
-	OSType    string `json:"ostype" db:"ostype"`         // OSTYpe of the VM
-	Uptime    string `json:"uptime" db:"uptime"`         // uptime
-	VmID      int    `json:"vmid" db:"vmid"`             // VMID
-	VmGenID   string `json:"vmgenid" db:"vmgenid"`       // VMGenID
-	KVM       int    `json:"kvm" db:"kvm"`               // KVM
-	Boot      string `json:"boot" db:"boot"`             // boot order
-	HostCPU   string `json:"hostcpu" db:"hostcpu"`       // Host CPU Type, ex ; host,x86-64-v2-AES
+	ID        string `json:"id,omitempty" db:"id"`
+	AgentID   string `json:"agent_id" db:"agent_id"`
+	ClusterID string `json:"cluster_id,omitempty" db:"cluster_id"`
+	NodeID    string `json:"node_id" db:"node_id"`
+	Name      string `json:"name" db:"name"`
+	QemuID    string `json:"qemu_id" db:"qemu_id"` // from 'id' field in resources
+	Status    string `json:"status" db:"status"`
+	OSType    string `json:"ostype" db:"ostype"`
+	Uptime    int    `json:"uptime" db:"uptime"`
+	VMID      int    `json:"vmid" db:"vmid"`
+	VMGenID   string `json:"vmgenid,omitempty" db:"vmgenid"`
+	KVM       int    `json:"kvm,omitempty" db:"kvm"`
+	Boot      string `json:"boot,omitempty" db:"boot"`
+	HostCPU   string `json:"cpu,omitempty" db:"host_cpu"`
+	Node      string `json:"node"` // Used for matching
 }

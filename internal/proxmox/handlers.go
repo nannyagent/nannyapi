@@ -3,6 +3,7 @@ package proxmox
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -91,13 +92,48 @@ func HandleIngestCluster(app core.App, e *core.RequestEvent) error {
 	record.Set("version", req.Version)
 	record.Set("px_cluster_id", req.ClusterID)
 
-	// Set ownership
-	record.Set("agent_id", authRecord.Id)
+	// Set ownership (append to agents list)
+	currentAgents := record.GetStringSlice("agents")
+
+	newAgents := make([]string, 0, len(currentAgents)+1)
+	newAgents = append(newAgents, currentAgents...)
+
+	found := false
+	for _, id := range newAgents {
+		if id == authRecord.Id {
+			found = true
+			break
+		}
+	}
+	if !found {
+		newAgents = append(newAgents, authRecord.Id)
+		record.Set("agents", newAgents)
+		log.Printf("[DEBUG] Appended agent %s to cluster %s", authRecord.Id, record.Id)
+	}
+
 	record.Set("user_id", authRecord.GetString("user_id"))
 	record.Set("recorded_at", time.Now())
 
 	if err := app.Save(record); err != nil {
 		return err
+	}
+
+	// Backfill cluster_id for nodes/lxc/qemu that might have been ingested before the cluster
+	// This handles the case where Node/LXC/QEMU are reported before the Cluster
+	backfillCollections := []string{"proxmox_nodes", "proxmox_lxc", "proxmox_qemu"}
+	for _, colName := range backfillCollections {
+		// Find records for this agent that don't have a cluster_id yet
+		orphans, err := app.FindRecordsByFilter(colName, "agent_id = {:agent} && cluster_id = ''", "", 0, 0, dbx.Params{"agent": authRecord.Id})
+		if err == nil && len(orphans) > 0 {
+			for _, orphan := range orphans {
+				orphan.Set("cluster_id", record.Id)
+				if err := app.Save(orphan); err != nil {
+					log.Printf("[ERROR] Failed to backfill cluster_id for %s %s: %v", colName, orphan.Id, err)
+				} else {
+					log.Printf("[DEBUG] Backfilled cluster_id for %s %s", colName, orphan.Id)
+				}
+			}
+		}
 	}
 
 	return e.JSON(http.StatusOK, map[string]string{"message": "Cluster ingested successfully", "id": record.Id})
@@ -127,10 +163,12 @@ func HandleIngestNode(app core.App, e *core.RequestEvent) error {
 	}
 
 	// Upsert Cluster link if needed
-	// assumes cluster must already exist && agent_id has an index
-	clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "agent_id = {:agent}", dbx.Params{"agent": authRecord.Id})
+	// assumes cluster must already exist && agent is part of it
+	clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "agents ~ {:agent}", dbx.Params{"agent": authRecord.Id})
 	if err == nil {
 		record.Set("cluster_id", clusterRec.Id)
+	} else {
+		log.Printf("[DEBUG] Node Ingest: Cluster not found for agent %s. Error: %v", authRecord.Id, err)
 	}
 
 	record.Set("ip", req.IP)
@@ -184,10 +222,12 @@ func HandleIngestLXC(app core.App, e *core.RequestEvent) error {
 
 	record.Set("node_id", nodeRec.Id)
 	// Upsert Cluster link if needed
-	// assumes cluster must already exist && agent_id has an index
-	clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "agent_id = {:agent}", dbx.Params{"agent": authRecord.Id})
+	// assumes cluster must already exist && agent is part of it
+	clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "agents ~ {:agent}", dbx.Params{"agent": authRecord.Id})
 	if err == nil {
 		record.Set("cluster_id", clusterRec.Id)
+	} else {
+		log.Printf("[DEBUG] LXC Ingest: Cluster not found for agent %s. Error: %v", authRecord.Id, err)
 	}
 
 	record.Set("name", req.Name)
@@ -240,10 +280,12 @@ func HandleIngestQemu(app core.App, e *core.RequestEvent) error {
 
 	record.Set("node_id", nodeRec.Id)
 	// Upsert Cluster link if needed
-	// assumes cluster must already exist && agent_id has an index
-	clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "agent_id = {:agent}", dbx.Params{"agent": authRecord.Id})
+	// assumes cluster must already exist && agent is part of it
+	clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "agents ~ {:agent}", dbx.Params{"agent": authRecord.Id})
 	if err == nil {
 		record.Set("cluster_id", clusterRec.Id)
+	} else {
+		log.Printf("[DEBUG] QEMU Ingest: Cluster not found for agent %s. Error: %v", authRecord.Id, err)
 	}
 
 	record.Set("name", req.Name)

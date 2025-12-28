@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/nannyagent/nannyapi/internal/types"
 	"github.com/pocketbase/dbx"
@@ -93,6 +94,7 @@ func HandleIngestCluster(app core.App, e *core.RequestEvent) error {
 	// Set ownership
 	record.Set("agent_id", authRecord.Id)
 	record.Set("user_id", authRecord.GetString("user_id"))
+	record.Set("recorded_at", time.Now())
 
 	if err := app.Save(record); err != nil {
 		return err
@@ -124,12 +126,11 @@ func HandleIngestNode(app core.App, e *core.RequestEvent) error {
 		record = core.NewRecord(collection)
 	}
 
-	// Link to cluster if present
-	if req.ClusterID != "" {
-		clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "px_cluster_id = {:id}", dbx.Params{"id": req.ClusterID})
-		if err == nil {
-			record.Set("cluster_id", clusterRec.Id)
-		}
+	// Upsert Cluster link if needed
+	// assumes cluster must already exist && agent_id has an index
+	clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "agent_id = {:agent}", dbx.Params{"agent": authRecord.Id})
+	if err == nil {
+		record.Set("cluster_id", clusterRec.Id)
 	}
 
 	record.Set("ip", req.IP)
@@ -139,6 +140,7 @@ func HandleIngestNode(app core.App, e *core.RequestEvent) error {
 	record.Set("pve_version", req.PVEVersion)
 	record.Set("px_node_id", req.NodeID)
 	record.Set("online", req.Online)
+	record.Set("recorded_at", time.Now())
 
 	// Set ownership
 	record.Set("agent_id", authRecord.Id)
@@ -181,8 +183,11 @@ func HandleIngestLXC(app core.App, e *core.RequestEvent) error {
 	}
 
 	record.Set("node_id", nodeRec.Id)
-	if clusterID := nodeRec.GetString("cluster_id"); clusterID != "" {
-		record.Set("cluster_id", clusterID)
+	// Upsert Cluster link if needed
+	// assumes cluster must already exist && agent_id has an index
+	clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "agent_id = {:agent}", dbx.Params{"agent": authRecord.Id})
+	if err == nil {
+		record.Set("cluster_id", clusterRec.Id)
 	}
 
 	record.Set("name", req.Name)
@@ -191,6 +196,7 @@ func HandleIngestLXC(app core.App, e *core.RequestEvent) error {
 	record.Set("ostype", req.OSType)
 	record.Set("uptime", req.Uptime)
 	record.Set("vmid", req.VMID)
+	record.Set("recorded_at", time.Now())
 
 	// Set ownership
 	record.Set("agent_id", authRecord.Id)
@@ -233,8 +239,11 @@ func HandleIngestQemu(app core.App, e *core.RequestEvent) error {
 	}
 
 	record.Set("node_id", nodeRec.Id)
-	if clusterID := nodeRec.GetString("cluster_id"); clusterID != "" {
-		record.Set("cluster_id", clusterID)
+	// Upsert Cluster link if needed
+	// assumes cluster must already exist && agent_id has an index
+	clusterRec, err := app.FindFirstRecordByFilter("proxmox_cluster", "agent_id = {:agent}", dbx.Params{"agent": authRecord.Id})
+	if err == nil {
+		record.Set("cluster_id", clusterRec.Id)
 	}
 
 	record.Set("name", req.Name)
@@ -247,6 +256,7 @@ func HandleIngestQemu(app core.App, e *core.RequestEvent) error {
 	record.Set("kvm", req.KVM)
 	record.Set("boot", req.Boot)
 	record.Set("host_cpu", req.HostCPU)
+	record.Set("recorded_at", time.Now())
 
 	// Set ownership
 	record.Set("agent_id", authRecord.Id)

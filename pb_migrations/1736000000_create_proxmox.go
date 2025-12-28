@@ -61,6 +61,11 @@ func init() {
 			MaxSelect:     1,
 		})
 
+		proxmoxClusterCollection.Fields.Add(&core.DateField{
+			Name:     "recorded_at",
+			Required: true,
+		})
+
 		// API Rules
 		proxmoxClusterCollection.ListRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
 		proxmoxClusterCollection.ViewRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
@@ -133,6 +138,11 @@ func init() {
 		proxmoxNodeCollection.Fields.Add(&core.NumberField{
 			Name:     "online",
 			Required: false,
+		})
+
+		proxmoxNodeCollection.Fields.Add(&core.DateField{
+			Name:     "recorded_at",
+			Required: true,
 		})
 
 		// API Rules
@@ -211,6 +221,11 @@ func init() {
 			Required: false,
 		})
 
+		proxmoxLxcCollection.Fields.Add(&core.DateField{
+			Name:     "recorded_at",
+			Required: true,
+		})
+
 		// we will add metrics like cpu, mem, disk & network later
 		// API Rules
 		proxmoxLxcCollection.ListRule = ptrString("user_id = @request.auth.id || agent_id = @request.auth.id ")
@@ -280,7 +295,7 @@ func init() {
 
 		proxmoxQemuCollection.Fields.Add(&core.NumberField{
 			Name:     "kvm",
-			Required: true,
+			Required: false,
 		})
 
 		proxmoxQemuCollection.Fields.Add(&core.TextField{
@@ -306,6 +321,11 @@ func init() {
 		proxmoxQemuCollection.Fields.Add(&core.TextField{
 			Name:     "vmgenid",
 			Required: false,
+		})
+
+		proxmoxQemuCollection.Fields.Add(&core.DateField{
+			Name:     "recorded_at",
+			Required: true,
 		})
 
 		// we will add metrics like cpu, mem, disk & network later

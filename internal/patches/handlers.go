@@ -40,9 +40,56 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 		return nil, fmt.Errorf("unauthorized: agent does not belong to user")
 	}
 
-	// Get agent OS info
-	platformFamily := agentRecord.GetString("platform_family")
-	osVersion := agentRecord.GetString("os_version")
+	// Determine Platform Family and OS Version
+	var platformFamily, osVersion, vmid string
+
+	if req.LxcID != "" {
+		// LXC Patching
+		lxcCollection, err := app.FindCollectionByNameOrId("proxmox_lxc")
+		if err != nil {
+			return nil, fmt.Errorf("proxmox_lxc collection not found: %w", err)
+		}
+		lxcRecord, err := app.FindRecordById(lxcCollection.Id, req.LxcID)
+		if err != nil {
+			return nil, fmt.Errorf("lxc container not found: %w", err)
+		}
+
+		// Verify LXC belongs to the agent
+		if lxcRecord.GetString("agent_id") != req.AgentID {
+			return nil, fmt.Errorf("lxc container does not belong to the specified agent")
+		}
+
+		ostype := lxcRecord.GetString("ostype")
+		if ostype == "" {
+			return nil, fmt.Errorf("lxc container has no ostype defined")
+		}
+
+		vmid = lxcRecord.GetString("vmid")
+		// if vmid == "" {
+		// 	// TODO: Handle missing vmid if necessary
+		// }
+
+		// Resolve ostype to platform_family using lxc_os_map
+		mapCollection, err := app.FindCollectionByNameOrId("lxc_os_map")
+		if err != nil {
+			return nil, fmt.Errorf("lxc_os_map collection not found: %w", err)
+		}
+
+		// Find mapping
+		// We can't use FindFirstRecordByFilter easily if we don't have dbx imported here or if we want to be safe.
+		// But FindRecordsByFilter works.
+		mapRecords, err := app.FindRecordsByFilter(mapCollection, "ostype = {:os}", "", 1, 0, map[string]interface{}{"os": ostype})
+		if err != nil || len(mapRecords) == 0 {
+			return nil, fmt.Errorf("unsupported lxc ostype: %s", ostype)
+		}
+
+		platformFamily = mapRecords[0].GetString("platform_family")
+		osVersion = "" // We usually don't have granular version for LXC ostype mapping yet, or we can add it later
+	} else {
+		// Host Patching
+		platformFamily = agentRecord.GetString("platform_family")
+		osVersion = agentRecord.GetString("os_version")
+	}
 
 	// Find appropriate script for this OS
 	scriptsCollection, err := app.FindCollectionByNameOrId("scripts")
@@ -91,6 +138,12 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 	record := core.NewRecord(collection)
 	record.Set("user_id", userID)
 	record.Set("agent_id", req.AgentID)
+	if req.LxcID != "" {
+		record.Set("lxc_id", req.LxcID)
+		if vmid != "" {
+			record.Set("vmid", vmid)
+		}
+	}
 	record.Set("mode", string(mode))
 	record.Set("status", string(types.PatchStatusPending))
 	record.Set("script_id", scriptRecord.Id)

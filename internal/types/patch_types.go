@@ -41,6 +41,7 @@ type PatchOperation struct {
 // PatchRequest initiates a patch operation
 type PatchRequest struct {
 	AgentID    string `json:"agent_id" validate:"required,uuid4"`
+	LxcID      string `json:"lxc_id" validate:"omitempty"` // Optional, for patching LXC containers
 	Mode       string `json:"mode" validate:"required,oneof=dry-run apply"`
 	ScriptURL  string `json:"script_url" validate:"omitempty"`  // Optional, resolved by server if empty
 	ScriptArgs string `json:"script_args" validate:"omitempty"` // Script arguments passed to execution

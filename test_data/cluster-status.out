@@ -1,0 +1,41 @@
+pvesh get /cluster/status --output-format json | jq
+[
+  {
+    "id": "cluster",
+    "name": "pxcluster",
+    "nodes": 3,
+    "quorate": 1,
+    "type": "cluster",
+    "version": 6
+  },
+  {
+    "id": "node/node1",
+    "ip": "1.1.1.1",
+    "level": "",
+    "local": 0,
+    "name": "node1",
+    "nodeid": 3,
+    "online": 1,
+    "type": "node"
+  },
+  {
+    "id": "node/node2",
+    "ip": "2.2.2.2",
+    "level": "",
+    "local": 0,
+    "name": "node2",
+    "nodeid": 2,
+    "online": 1,
+    "type": "node"
+  },
+  {
+    "id": "node/node3",
+    "ip": "3.3.3.3",
+    "level": "",
+    "local": 1,
+    "name": "node3",
+    "nodeid": 1,
+    "online": 1,
+    "type": "node"
+  }
+]

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/big"
 	"net/http"
@@ -317,7 +316,7 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 	// Store metrics
 	metricsCollection, err := app.FindCollectionByNameOrId("agent_metrics")
 	if err != nil {
-		fmt.Println("Error finding agent_metrics:", err)
+		log.Printf("[ERROR] Error finding agent_metrics: %v", err)
 		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "metrics collection not found"})
 	}
 
@@ -358,7 +357,7 @@ func HandleIngestMetrics(app core.App, c *core.RequestEvent) error {
 	metricsRecord.Set("recorded_at", time.Now())
 
 	if err := app.Save(metricsRecord); err != nil {
-		fmt.Println("Error saving metrics:", err)
+		log.Printf("[ERROR] Error saving metrics: %v", err)
 		return c.JSON(http.StatusInternalServerError, types.ErrorResponse{Error: "failed to save metrics"})
 	}
 

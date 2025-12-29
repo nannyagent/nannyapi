@@ -8,6 +8,7 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
 	"github.com/nannyagent/nannyapi/internal/hooks"
+	"github.com/nannyagent/nannyapi/internal/schedules"
 	_ "github.com/nannyagent/nannyapi/pb_migrations"
 )
 
@@ -29,6 +30,13 @@ func main() {
 	// Register investigation and patch management hooks
 	hooks.RegisterInvestigationHooks(app)
 	hooks.RegisterPatchHooks(app)
+	hooks.RegisterPackageExceptionHooks(app)
+
+	// Register proxmox hooks
+	hooks.RegisterProxmoxHooks(app)
+
+	// Register scheduler
+	schedules.RegisterScheduler(app)
 
 	if err := app.Start(); err != nil {
 		log.Fatal(err)

@@ -96,25 +96,9 @@ func init() {
 			}
 		}
 
-		// 5. Seed Alpine script
-		// We need to create the file first.
-		// Since we can't easily upload a file in migration without the file existing on disk,
-		// we will assume the file creation happens via the tool separately or we create a placeholder.
-		// However, the user asked to "add a script with your knowledge in patch_scripts".
-		// The previous migration created scripts manually or via API?
-		// 1735000001_create_patch_management.go created the collection but didn't seed scripts.
-		// The scripts seem to be added via API or other means.
-		// But I can try to add it if I can write the file content.
-
-		// For now, I will just create the collection structure.
-		// The script file creation will be done via `create_file` tool in `patch_scripts/alpine/apk-update.sh`.
-		// The actual DB record for the script needs to be added.
-		// I'll leave the DB record creation for the script to a separate step or manual API call
-		// as handling file uploads in migration is tricky without the file source.
-		// Wait, I can create the record if I have the file.
-
 		return nil
 	}, func(app core.App) error {
+		// TO-DO: We don't support rollback of patch for now.
 		// Revert logic if needed
 		return nil
 	})

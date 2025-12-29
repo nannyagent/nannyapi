@@ -121,7 +121,10 @@ func ExecuteSchedule(app core.App, scheduleID string) {
 
 	// Update last_run_at and next_run_at
 	schedule.Set("last_run_at", time.Now().UTC())
-	updateNextRun(schedule) // Update next_run_at for display
+	err = updateNextRun(schedule) // Update next_run_at for display
+	if err != nil {
+		app.Logger().Error("Failed to update next_run_at", "schedule_id", scheduleID, "error", err)
+	}
 
 	if err := app.Save(schedule); err != nil {
 		app.Logger().Error("Failed to update schedule stats", "schedule_id", scheduleID, "error", err)

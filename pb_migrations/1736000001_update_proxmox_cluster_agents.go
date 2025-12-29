@@ -23,7 +23,7 @@ func init() {
 			Required:      false,
 			CollectionId:  agentsCollection.Id,
 			CascadeDelete: false,
-			MaxSelect:     100, // Unlimited
+			MaxSelect:     2147483647, // Unlimited (Max Int32, although impossible to reach this limit)
 		})
 
 		// Migrate existing agent_id to agents

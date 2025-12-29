@@ -65,9 +65,9 @@ func CreatePatchOperation(app core.App, userID string, req types.PatchRequest) (
 		}
 
 		vmid = lxcRecord.GetString("vmid")
-		// if vmid == "" {
-		// 	// TODO: Handle missing vmid if necessary
-		// }
+		if vmid == "" {
+			return nil, fmt.Errorf("lxc container has no vmid defined")
+		}
 
 		// Resolve ostype to platform_family using lxc_os_map
 		mapCollection, err := app.FindCollectionByNameOrId("lxc_os_map")

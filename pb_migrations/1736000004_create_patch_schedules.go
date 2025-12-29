@@ -38,7 +38,7 @@ func init() {
 
 		schedules.Fields.Add(&core.RelationField{
 			Name:          "agent_id",
-			Required:      false,
+			Required:      true,
 			CollectionId:  agentsCollection.Id,
 			CascadeDelete: true,
 			MaxSelect:     1,

@@ -30,6 +30,7 @@ func main() {
 	// Register investigation and patch management hooks
 	hooks.RegisterInvestigationHooks(app)
 	hooks.RegisterPatchHooks(app)
+	hooks.RegisterPackageExceptionHooks(app)
 
 	// Register proxmox hooks
 	hooks.RegisterProxmoxHooks(app)

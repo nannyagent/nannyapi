@@ -213,7 +213,7 @@ func TestLxcPatchScheduling(t *testing.T) {
 	schedule := core.NewRecord(schedulesCollection)
 	schedule.Set("user_id", user.Id)
 	schedule.Set("lxc_id", lxc.Id)
-	schedule.Set("agent_id", agent.Id) // Agent is needed for routing
+	schedule.Set("agent_id", agent.Id) // Denormalized copy of lxc.agent_id; scheduler expects agent_id on the schedule for routing
 	schedule.Set("cron_expression", "* * * * *")
 	schedule.Set("is_active", true)
 

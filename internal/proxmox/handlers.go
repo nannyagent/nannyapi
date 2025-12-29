@@ -2,7 +2,6 @@ package proxmox
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"math"
 	"net/http"
@@ -31,6 +30,19 @@ func getPagination(e *core.RequestEvent) (int, int) {
 	return page, perPage
 }
 
+// Helper for ID validation to prevent injection
+func isValidID(id string) bool {
+	for _, ch := range id {
+		if !((ch >= 'a' && ch <= 'z') ||
+			(ch >= 'A' && ch <= 'Z') ||
+			(ch >= '0' && ch <= '9') ||
+			ch == '-' || ch == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 // Helper for list response
 type ListResponse struct {
 	Page       int            `json:"page"`
@@ -40,7 +52,7 @@ type ListResponse struct {
 	Items      []*core.Record `json:"items"`
 }
 
-func createListResponse(app core.App, collection string, pbFilter string, sqlFilter dbx.Expression, sort string, page, perPage int) (*ListResponse, error) {
+func createListResponse(app core.App, collection string, pbFilter string, sqlFilter dbx.Expression, sort string, page, perPage int, filterArgs dbx.Params) (*ListResponse, error) {
 	totalItems, err := app.CountRecords(collection, sqlFilter)
 	if err != nil {
 		return nil, err
@@ -49,7 +61,7 @@ func createListResponse(app core.App, collection string, pbFilter string, sqlFil
 	totalPages := int(math.Ceil(float64(totalItems) / float64(perPage)))
 	offset := (page - 1) * perPage
 
-	records, err := app.FindRecordsByFilter(collection, pbFilter, sort, perPage, offset)
+	records, err := app.FindRecordsByFilter(collection, pbFilter, sort, perPage, offset, filterArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +327,7 @@ func HandleIngestQemu(app core.App, e *core.RequestEvent) error {
 
 func HandleListClusters(app core.App, e *core.RequestEvent) error {
 	page, perPage := getPagination(e)
-	resp, err := createListResponse(app, "proxmox_cluster", "1=1", dbx.NewExp("1=1"), "", page, perPage)
+	resp, err := createListResponse(app, "proxmox_cluster", "1=1", dbx.NewExp("1=1"), "", page, perPage, nil)
 	if err != nil {
 		return err
 	}
@@ -352,12 +364,18 @@ func HandleDeleteCluster(app core.App, e *core.RequestEvent) error {
 func HandleListNodes(app core.App, e *core.RequestEvent) error {
 	pbFilter := "1=1"
 	sqlFilter := dbx.NewExp("1=1")
+	filterArgs := dbx.Params{}
+
 	if clusterID := e.Request.URL.Query().Get("cluster_id"); clusterID != "" {
-		pbFilter += fmt.Sprintf(" && cluster_id = '%s'", clusterID)
+		if !isValidID(clusterID) {
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid cluster_id"})
+		}
+		pbFilter += " && cluster_id = {:clusterID}"
 		sqlFilter = dbx.And(sqlFilter, dbx.HashExp{"cluster_id": clusterID})
+		filterArgs["clusterID"] = clusterID
 	}
 	page, perPage := getPagination(e)
-	resp, err := createListResponse(app, "proxmox_nodes", pbFilter, sqlFilter, "", page, perPage)
+	resp, err := createListResponse(app, "proxmox_nodes", pbFilter, sqlFilter, "", page, perPage, filterArgs)
 	if err != nil {
 		return err
 	}
@@ -393,16 +411,26 @@ func HandleDeleteNode(app core.App, e *core.RequestEvent) error {
 func HandleListLXC(app core.App, e *core.RequestEvent) error {
 	pbFilter := "1=1"
 	sqlFilter := dbx.NewExp("1=1")
+	filterArgs := dbx.Params{}
+
 	if nodeID := e.Request.URL.Query().Get("node_id"); nodeID != "" {
-		pbFilter += fmt.Sprintf(" && node_id = '%s'", nodeID)
+		if !isValidID(nodeID) {
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid node_id"})
+		}
+		pbFilter += " && node_id = {:nodeID}"
 		sqlFilter = dbx.And(sqlFilter, dbx.HashExp{"node_id": nodeID})
+		filterArgs["nodeID"] = nodeID
 	}
 	if clusterID := e.Request.URL.Query().Get("cluster_id"); clusterID != "" {
-		pbFilter += fmt.Sprintf(" && cluster_id = '%s'", clusterID)
+		if !isValidID(clusterID) {
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid cluster_id"})
+		}
+		pbFilter += " && cluster_id = {:clusterID}"
 		sqlFilter = dbx.And(sqlFilter, dbx.HashExp{"cluster_id": clusterID})
+		filterArgs["clusterID"] = clusterID
 	}
 	page, perPage := getPagination(e)
-	resp, err := createListResponse(app, "proxmox_lxc", pbFilter, sqlFilter, "", page, perPage)
+	resp, err := createListResponse(app, "proxmox_lxc", pbFilter, sqlFilter, "", page, perPage, filterArgs)
 	if err != nil {
 		return err
 	}
@@ -438,16 +466,26 @@ func HandleDeleteLXC(app core.App, e *core.RequestEvent) error {
 func HandleListQemu(app core.App, e *core.RequestEvent) error {
 	pbFilter := "1=1"
 	sqlFilter := dbx.NewExp("1=1")
+	filterArgs := dbx.Params{}
+
 	if nodeID := e.Request.URL.Query().Get("node_id"); nodeID != "" {
-		pbFilter += fmt.Sprintf(" && node_id = '%s'", nodeID)
+		if !isValidID(nodeID) {
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid node_id"})
+		}
+		pbFilter += " && node_id = {:nodeID}"
 		sqlFilter = dbx.And(sqlFilter, dbx.HashExp{"node_id": nodeID})
+		filterArgs["nodeID"] = nodeID
 	}
 	if clusterID := e.Request.URL.Query().Get("cluster_id"); clusterID != "" {
-		pbFilter += fmt.Sprintf(" && cluster_id = '%s'", clusterID)
+		if !isValidID(clusterID) {
+			return e.JSON(http.StatusBadRequest, map[string]string{"error": "invalid cluster_id"})
+		}
+		pbFilter += " && cluster_id = {:clusterID}"
 		sqlFilter = dbx.And(sqlFilter, dbx.HashExp{"cluster_id": clusterID})
+		filterArgs["clusterID"] = clusterID
 	}
 	page, perPage := getPagination(e)
-	resp, err := createListResponse(app, "proxmox_qemu", pbFilter, sqlFilter, "", page, perPage)
+	resp, err := createListResponse(app, "proxmox_qemu", pbFilter, sqlFilter, "", page, perPage, filterArgs)
 	if err != nil {
 		return err
 	}

@@ -53,27 +53,18 @@ func RegisterPatchHooks(app core.App) {
 	app.OnRecordCreate("patch_operations").BindFunc(func(e *core.RecordEvent) error {
 		scriptID := e.Record.GetString("script_id")
 		agentID := e.Record.GetString("agent_id")
+		lxcID := e.Record.GetString("lxc_id")
 
 		// 1. Populate script_id if missing
-		if scriptID == "" && agentID != "" {
-			agent, err := app.FindRecordById("agents", agentID)
+		if scriptID == "" {
+			var err error
+			scriptID, err = resolveScriptID(app, agentID, lxcID)
 			if err != nil {
 				return err
 			}
-			platformFamily := agent.GetString("platform_family")
-
-			records, err := app.FindRecordsByFilter("scripts", "platform_family = {:platform}", "", 1, 0, map[string]interface{}{
-				"platform": platformFamily,
-			})
-			if err != nil {
-				return err
+			if scriptID != "" {
+				e.Record.Set("script_id", scriptID)
 			}
-			if len(records) == 0 {
-				return fmt.Errorf("no script found for platform family: %s", platformFamily)
-			}
-
-			scriptID = records[0].Id
-			e.Record.Set("script_id", scriptID)
 		}
 
 		// 2. Populate script_url
@@ -114,6 +105,16 @@ func RegisterPatchHooks(app core.App) {
 			}
 		}
 
+		// 4. Populate vmid if lxc_id is present
+		if lxcID != "" {
+			lxcRecord, err := app.FindRecordById("proxmox_lxc", lxcID)
+			if err != nil {
+				return err
+			}
+			vmid := lxcRecord.GetInt("vmid")
+			e.Record.Set("vmid", fmt.Sprintf("%d", vmid))
+		}
+
 		return e.Next()
 	})
 
@@ -150,4 +151,51 @@ func RegisterPatchHooks(app core.App) {
 
 		return e.Next()
 	})
+}
+
+func resolveScriptID(app core.App, agentID, lxcID string) (string, error) {
+	var platformFamily string
+
+	if lxcID != "" {
+		// LXC Logic
+		lxc, err := app.FindRecordById("proxmox_lxc", lxcID)
+		if err != nil {
+			return "", err
+		}
+		ostype := lxc.GetString("ostype")
+
+		// Map ostype to platform_family
+		mapping, err := app.FindRecordsByFilter("lxc_os_map", "ostype = {:os}", "", 1, 0, map[string]interface{}{"os": ostype})
+		if err != nil {
+			return "", err
+		}
+		if len(mapping) == 0 {
+			return "", fmt.Errorf("no OS mapping found for ostype: %s", ostype)
+		}
+		platformFamily = mapping[0].GetString("platform_family")
+
+	} else if agentID != "" {
+		// Agent Logic
+		agent, err := app.FindRecordById("agents", agentID)
+		if err != nil {
+			return "", err
+		}
+		platformFamily = agent.GetString("platform_family")
+	}
+
+	if platformFamily != "" {
+		records, err := app.FindRecordsByFilter("scripts", "platform_family = {:platform}", "", 1, 0, map[string]interface{}{
+			"platform": platformFamily,
+		})
+		if err != nil {
+			return "", err
+		}
+		if len(records) == 0 {
+			return "", fmt.Errorf("no script found for platform family: %s", platformFamily)
+		}
+
+		return records[0].Id, nil
+	}
+
+	return "", nil
 }

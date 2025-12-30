@@ -1,7 +1,7 @@
 # Patch Management
 
 <p align="center">
-  <img src="https://avatars.githubusercontent.com/u/199338956" alt="NannyAgent Logo" width="120" />
+  <img src="https://avatars.githubusercontent.com/u/110624612" alt="NannyAgent Logo" width="120" />
 </p>
 
 Comprehensive patch management system for **Linux systems only**, supporting multiple distributions with SHA-256 integrity verification and persistent package exceptions.

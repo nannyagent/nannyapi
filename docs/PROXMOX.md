@@ -1,7 +1,7 @@
 # Proxmox Integration
 
 <p align="center">
-  <img src="https://avatars.githubusercontent.com/u/199338956" alt="NannyAgent Logo" width="120" />
+  <img src="https://avatars.githubusercontent.com/u/110624612" alt="NannyAgent Logo" width="120" />
 </p>
 
 NannyAPI provides specialized support for Proxmox VE environments, enabling comprehensive observability and patch management for both the host nodes and their guest containers (LXC). This integration allows centralized management of Proxmox infrastructure without requiring agents inside every container.

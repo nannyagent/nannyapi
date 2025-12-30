@@ -1,7 +1,7 @@
 # NannyAPI
 
 <p align="center">
-  <img src="https://avatars.githubusercontent.com/u/199338956" alt="NannyAgent Logo" width="150" />
+  <img src="https://avatars.githubusercontent.com/u/110624612" alt="NannyAgent Logo" width="150" />
 </p>
 
 <p align="center">

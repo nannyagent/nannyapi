@@ -1,7 +1,7 @@
 # Contributing to NannyAPI
 
 <p align="center">
-  <img src="https://avatars.githubusercontent.com/u/199338956" alt="NannyAgent Logo" width="120" />
+  <img src="https://avatars.githubusercontent.com/u/110624612" alt="NannyAgent Logo" width="120" />
 </p>
 
 We welcome contributions! This guide will help you set up your development environment and understand our contribution process.

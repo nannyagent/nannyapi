@@ -1,243 +1,123 @@
 # Deployment Guide
 
-This guide covers how to deploy NannyAPI in various environments.
+This guide covers how to deploy NannyAPI in a production environment.
 
-## Docker Deployment
+## Prerequisites
 
-### Prerequisites
-- Docker Engine 20.10+
-- Docker Compose 2.0+
-- Access to MongoDB instance
-- SSL certificates (for production)
+- **Server**: A Linux server (Ubuntu/Debian recommended).
+- **Database**: 
+  - **SQLite**: Embedded (default, handled by PocketBase).
+  - **ClickHouse**: Required for advanced AI observability (optional but recommended).
+- **AI Gateway**: **TensorZero** instance running and accessible.
 
-### Steps
+## Environment Configuration
 
-1. **Build the Docker image:**
+NannyAPI uses environment variables for configuration. You should create a `.env` file in your working directory (e.g., `/var/lib/nannyapi/.env`).
+
+### Required Variables
+
+```bash
+# PocketBase Settings
+# (Optional) If you want to disable the admin UI
+# PB_DISABLE_ADMIN_UI=true
+
+# Database Encryption (32-byte string)
+NANNY_ENCRYPTION_KEY=your-32-byte-encryption-key-here
+
+# JWT Secret for Token Signing
+JWT_SECRET=your-strong-jwt-secret
+
+# OAuth2 Credentials (if using OAuth)
+GH_CLIENT_ID=your-github-client-id
+GH_CLIENT_SECRET=your-github-client-secret
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# AI & Observability
+TENSORZERO_API_URL=http://tensorzero:3000
+CLICKHOUSE_DSN=clickhouse://user:password@clickhouse-host:9000/nanny_db
+```
+
+## Systemd Deployment
+
+If you used the `install.sh` script, a systemd service file was created for you. You need to ensure it loads the environment variables.
+
+1. **Edit the Service File**:
+   ```bash
+   sudo nano /etc/systemd/system/nannyapi.service
+   ```
+
+2. **Add EnvironmentFile Directive**:
+   Ensure the `[Service]` section includes `EnvironmentFile`.
+
+   ```ini
+   [Unit]
+   Description=NannyAPI Service
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=root
+   WorkingDirectory=/var/lib/nannyapi
+   # Load env vars from file
+   EnvironmentFile=/var/lib/nannyapi/.env
+   ExecStart=/usr/local/bin/nannyapi serve --dir="/var/lib/nannyapi/pb_data" --publicDir="/var/lib/nannyapi/pb_public" --http="0.0.0.0:8090"
+   Restart=on-failure
+   LimitNOFILE=4096
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+3. **Reload and Restart**:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart nannyapi
+   ```
+
+## Docker Deployment (Template)
+
+A `Dockerfile` is provided in the repository. You can use it to build a container image.
+
 ```bash
 docker build -t nannyapi:latest .
 ```
 
-2. **Configure environment:**
-Create a `.env` file with production settings:
-```env
-GIN_MODE=release
-MONGODB_URI=your-production-mongodb-uri
-NANNY_ENCRYPTION_KEY=your-production-key
-GH_CLIENT_ID=your-github-client-id
-GH_CLIENT_SECRET=your-github-client-secret
-```
+Run with Docker Compose (example):
 
-3. **Deploy with Docker Compose:**
-```bash
-docker-compose up -d
-```
-
-## Kubernetes Deployment
-
-### Prerequisites
-- Kubernetes cluster 1.24+
-- kubectl configured
-- Helm 3.0+
-
-### Steps
-
-1. **Add Helm repository:**
-```bash
-helm repo add nannyapi https://charts.nannyai.dev
-helm repo update
-```
-
-2. **Create values file:**
 ```yaml
-# values.yaml
-replicaCount: 3
-
-image:
-  repository: nannyapi
-  tag: latest
-  pullPolicy: Always
-
-mongodb:
-  uri: mongodb://your-mongodb-service:27017
-
-secrets:
-  encryptionKey: your-base64-encoded-key
-  githubClientId: your-base64-encoded-id
-  githubClientSecret: your-base64-encoded-secret
-
-ingress:
-  enabled: true
-  host: api.nannyai.dev
-  tls: true
-```
-3. **Deploy:**
-```bash
-helm install nannyapi nannyapi/nannyapi -f values.yaml
+version: '3.8'
+services:
+  nannyapi:
+    image: nannyapi:latest
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./pb_data:/pb_data
+    env_file:
+      - .env
+    depends_on:
+      - clickhouse
+      - tensorzero
 ```
 
-## Cloud Provider Deployments
+## Reverse Proxy (Nginx)
 
-### AWS ECS
+It is highly recommended to run NannyAPI behind a reverse proxy like Nginx or Caddy to handle SSL termination.
 
-1. **Create ECR repository:**
-```bash
-aws ecr create-repository --repository-name nannyapi
-```
+**Nginx Example:**
 
-2. **Push image:**
-```bash
-aws ecr get-login-password --region region | docker login --username AWS --password-stdin aws_account_id.dkr.ecr.region.amazonaws.com
-docker tag nannyapi:latest aws_account_id.dkr.ecr.region.amazonaws.com/nannyapi:latest
-docker push aws_account_id.dkr.ecr.region.amazonaws.com/nannyapi:latest
-```
+```nginx
+server {
+    listen 80;
+    server_name api.nanny.dev;
 
-3. **Create ECS Task Definition and Service**
-   - Use AWS Console or CloudFormation
-   - Configure environment variables
-   - Set up load balancer
-   - Enable auto-scaling
-
-### Google Cloud Run
-
-1. **Build and push:**
-```bash
-gcloud builds submit --tag gcr.io/project-id/nannyapi
-```
-
-2. **Deploy:**
-```bash
-gcloud run deploy nannyapi \
-  --image gcr.io/project-id/nannyapi \
-  --platform managed \
-  --region us-central1 \
-  --set-env-vars="MONGODB_URI=your-uri"
-```
-
-## Monitoring and Logging
-
-### Prometheus Metrics
-The application exposes metrics at `/metrics`:
-- Request latency
-- Error rates
-- MongoDB operation metrics
-- Custom business metrics
-
-### Logging
-Logs are written in JSON format to stdout:
-```json
-{
-  "level": "info",
-  "timestamp": "2025-04-06T12:00:00Z",
-  "caller": "server/server.go:42",
-  "msg": "Request processed",
-  "method": "GET",
-  "path": "/api/status",
-  "duration_ms": 5
+    location / {
+        proxy_pass http://127.0.0.1:8090;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
 ```
-
-### Health Checks
-- Readiness: `/health/ready`
-- Liveness: `/health/live`
-
-## SSL/TLS Configuration
-
-1. **Generate certificates:**
-```bash
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout nannyapi.key -out nannyapi.crt
-```
-
-2. **Configure in environment:**
-```env
-TLS_CERT_PATH=/path/to/nannyapi.crt
-TLS_KEY_PATH=/path/to/nannyapi.key
-```
-
-## Database Management
-
-### Backup Strategy
-1. **Regular backups:**
-```bash
-mongodump --uri="mongodb://your-uri" --out=/backup/$(date +%Y%m%d)
-```
-
-2. **Restore if needed:**
-```bash
-mongorestore --uri="mongodb://your-uri" /backup/20250406
-```
-
-## Scaling Guidelines
-
-### Horizontal Scaling
-- Use container orchestration (Kubernetes/ECS)
-- Enable auto-scaling based on CPU/memory
-- Configure proper readiness/liveness probes
-
-### Vertical Scaling
-- Monitor resource usage
-- Adjust container resources as needed
-- Scale MongoDB appropriately
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Connection Timeouts**
-   - Check network policies
-   - Verify MongoDB connection string
-   - Check DNS resolution
-
-2. **High Memory Usage**
-   - Review goroutine leaks
-   - Check MongoDB connection pool
-   - Monitor memory metrics
-
-3. **High Latency**
-   - Check database indices
-   - Review slow queries
-   - Monitor network latency
-
-## Rollback Procedures
-
-1. **Container-based:**
-```bash
-docker-compose up -d --rollback
-```
-
-2. **Kubernetes:**
-```bash
-kubectl rollout undo deployment/nannyapi
-```
-
-## Security Considerations
-
-1. **Network Security**
-   - Use VPC/private networks
-   - Implement proper firewalls
-   - Enable TLS everywhere
-
-2. **Access Control**
-   - Use IAM roles
-   - Implement RBAC
-   - Regular audit logging
-
-3. **Secrets Management**
-   - Use secrets management service
-   - Rotate credentials regularly
-   - Monitor for exposures
-
-## Maintenance
-
-### Regular Tasks
-- Update dependencies monthly
-- Rotate credentials quarterly
-- Review and update SSL certificates
-- Monitor disk usage
-- Check backup integrity
-
-### Performance Optimization
-- Review and update indices
-- Monitor query performance
-- Optimize caching strategy
-- Review resource allocation

@@ -8,8 +8,8 @@
   <a href="https://github.com/nannyagent/nannyapi/actions/workflows/ci.yml">
     <img src="https://github.com/nannyagent/nannyapi/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
-  <a href="https://www.gnu.org/licenses/gpl-3.0">
-    <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
   </a>
 </p>
 
@@ -49,4 +49,4 @@ For detailed installation and upgrade instructions, please refer to the [Install
 
 ## License
 
-This project is licensed under the GPLv3 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

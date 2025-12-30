@@ -1,7 +1,17 @@
 # NannyAPI
 
-[![CI](https://github.com/nannyagent/nannyapi/actions/workflows/ci.yml/badge.svg)](https://github.com/nannyagent/nannyapi/actions/workflows/ci.yml)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+<p align="center">
+  <img src="https://avatars.githubusercontent.com/u/199338956" alt="NannyAgent Logo" width="150" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/nannyagent/nannyapi/actions/workflows/ci.yml">
+    <img src="https://github.com/nannyagent/nannyapi/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://www.gnu.org/licenses/gpl-3.0">
+    <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
+  </a>
+</p>
 
 NannyAPI is the central control plane for Nanny Agents. It handles agent registration, authentication, investigation orchestration, and patch management.
 
@@ -15,9 +25,9 @@ We have reorganized our documentation to help you get started quickly.
 - **[Architecture](docs/ARCHITECTURE.md)**: System components, authentication flows, database schema, AI integration (TensorZero), and observability (ClickHouse).
 - **[API Reference](docs/API_REFERENCE.md)**: Complete API documentation with all endpoints, request/response examples, and authentication.
 - **[Patch Management](docs/PATCHING.md)**: Automated patching workflow, script verification, exception handling, and dry-run mode.
+- **[Proxmox Integration](docs/PROXMOX.md)**: Agentless LXC container management and Proxmox VE support.
 - **[Security Policy](docs/SECURITY.md)**: Reporting vulnerabilities and AI safety.
-- **[Contributing](docs/CONTRIBUTING.md)**: Development setup and guidelines.
-- **[Contributors](docs/CONTRIBUTORS.md)**: List of contributors.
+- **[Contributing](docs/CONTRIBUTING.md)**: Development setup, guidelines, and contributor information.
 
 ## Quick Start
 

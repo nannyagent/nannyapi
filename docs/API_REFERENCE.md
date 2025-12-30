@@ -1,5 +1,9 @@
 # API Reference
 
+<p align="center">
+  <img src="https://avatars.githubusercontent.com/u/199338956" alt="NannyAgent Logo" width="120" />
+</p>
+
 Complete reference for all NannyAPI endpoints with actual request/response examples.
 
 ## Base URL

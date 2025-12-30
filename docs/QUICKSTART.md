@@ -1,5 +1,9 @@
 # Quick Start Guide
 
+<p align="center">
+  <img src="https://avatars.githubusercontent.com/u/199338956" alt="NannyAgent Logo" width="120" />
+</p>
+
 Get NannyAPI running in 5 minutes.
 
 ## Prerequisites
@@ -21,6 +25,8 @@ curl -sL https://raw.githubusercontent.com/nannyagent/nannyapi/main/install.sh |
 This installs the binary to `/usr/local/bin/nannyapi` and sets up a systemd service.
 
 ### Option 2: Docker
+
+> **⚠️ Note**: Docker support is currently in development. The example below is speculative and will be updated when Docker images are officially published.
 
 ```bash
 docker run -d \
@@ -258,6 +264,8 @@ go test ./tests/ -v -run TestAgentRegistration
 5. **Tokens**: Store refresh tokens securely and rotate before 30-day expiry
 
 ## External Services (Optional)
+
+> **⚠️ Note**: Docker examples below are speculative and will be updated when official Docker images are published.
 
 ### TensorZero (AI Investigations)
 

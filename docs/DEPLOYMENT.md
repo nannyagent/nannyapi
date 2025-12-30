@@ -128,8 +128,10 @@ sudo cp nannyapi /usr/local/bin/
 
 ### Method 3: Docker
 
+> **⚠️ Note**: Docker deployment support is currently in development. The examples below are speculative and will be updated when Docker images are officially published. For production use, please use Method 1 (Binary) or Method 2 (Source) until Docker support is finalized.
+
 ```bash
-# Using docker run
+# Using docker run (Coming Soon)
 docker run -d \
   --name nannyapi \
   -p 8090:8090 \
@@ -140,7 +142,7 @@ docker run -d \
   serve --dir="/pb_data" --http="0.0.0.0:8090"
 ```
 
-**Docker Compose:**
+**Docker Compose (Coming Soon):**
 ```yaml
 version: '3.8'
 
@@ -767,7 +769,9 @@ TENSORZERO_API_KEY="your-api-key"
 
 ### ClickHouse Deployment
 
-**Docker Compose:**
+> **\u26a0\ufe0f Note**: Docker Compose examples below are speculative. Use official ClickHouse installation methods until Docker support is finalized.
+
+**Docker Compose (Speculative):**
 ```yaml
 clickhouse:
   image: clickhouse/clickhouse-server:latest

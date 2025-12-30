@@ -1,5 +1,9 @@
 # NannyAPI Architecture
 
+<p align="center">
+  <img src="https://avatars.githubusercontent.com/u/199338956" alt="NannyAgent Logo" width="120" />
+</p>
+
 ## Project Evolution
 
 > **Note**: NannyAPI was originally developed as a diagnostic agent leveraging AI for system troubleshooting. Over time, it evolved to support patch management, Proxmox integration, and comprehensive infrastructure monitoring. Future releases will introduce modularity, allowing the system to run without dependencies like TensorZero or ClickHouse based on user requirements and deployment scenarios.

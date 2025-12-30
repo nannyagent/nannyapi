@@ -54,23 +54,5 @@ sec-check:
 # Reset database and start server (Development only)
 # WARNING: This deletes pb_data!
 reset-start: build
-	@echo "Cleaning pb_data..."
-	@rm -rf pb_data
-	@echo "Killing nannyapi processes if any..."
-	@pkill -f bin/nannyapi || true
-	@echo "Running migrations..."
-	@if [ -f .env ]; then \
-		export $$(cat .env | grep -v '^#' | xargs); \
-		./bin/nannyapi migrate --dir=./pb_data; \
-		echo "Creating default admin..."; \
-		./bin/nannyapi superuser upsert admin@nannyapi.local AdminPass-123 --dir=./pb_data; \
-		echo "Starting server..."; \
-		./bin/nannyapi serve --dir=./pb_data --http="0.0.0.0:8090"; \
-	else \
-		echo "No .env file found. Running without env vars..."; \
-		./bin/nannyapi migrate --dir=./pb_data; \
-		echo "Creating default admin..."; \
-		./bin/nannyapi superuser upsert admin@nannyapi.local AdminPass-123 --dir=./pb_data; \
-		echo "Starting server..."; \
-		./bin/nannyapi serve --dir=./pb_data --http="0.0.0.0:8090"; \
-	fi
+	@echo "Running reset-and-start.sh script..."
+	@./scripts/reset-and-start.sh

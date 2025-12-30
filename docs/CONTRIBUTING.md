@@ -27,17 +27,51 @@ This script will:
 
 ### Running Tests
 
-To run the test suite:
+**Unit testing is critical to the stability and reliability of NannyAPI.** All contributions must include comprehensive unit tests.
+
+#### Testing Guidelines
+
+1. **Write Tests First**: Follow TDD (Test-Driven Development) when possible
+2. **Test Coverage**: Aim for >80% coverage on new code
+3. **Test All Paths**: Cover success cases, error cases, and edge cases
+4. **Use Table-Driven Tests**: For multiple similar test cases
+5. **Mock External Dependencies**: Use mocks for TensorZero, ClickHouse, etc.
+6. **Test Files Location**: Place tests in `tests/` directory or alongside code as `*_test.go`
+
+#### Running Tests
+
+All tests are executed via the Makefile:
 
 ```bash
+# Run all tests with race detection
 make test
+
+# Run tests with coverage report
+make coverage
+
+# Run specific package tests
+go test ./internal/agents/... -v
+go test ./tests/ -v -run TestAgentRegistration
 ```
 
-For coverage reports:
+#### Required Before PR Submission
 
 ```bash
+# 1. Run tests
+make test
+
+# 2. Check coverage
 make coverage
+# Open coverage.html in browser to review
+
+# 3. Run linter
+make lint
+
+# 4. Format code
+make fmt
 ```
+
+**Pull requests without adequate test coverage will not be merged.**
 
 ### Code Style
 

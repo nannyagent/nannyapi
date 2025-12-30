@@ -1,116 +1,240 @@
 # Quick Start Guide
 
-This guide will help you get started with NannyAPI development quickly.
+Get NannyAPI running in 5 minutes.
 
 ## Prerequisites
 
-1. **Go 1.24+**
-   - Required for building and running the application
-   - [Install Go](https://golang.org/doc/install)
+- **Go 1.24+** (for building from source)
+- **Linux** (x86_64/amd64 or ARM64 architectures only)
+- **Port 8090** available (default PocketBase port)
 
-2. **MongoDB**
-   - Required for data storage
-   - [Install MongoDB](https://docs.mongodb.com/manual/installation/)
+> **Note**: Currently, only Linux agents are supported. macOS, Windows, and other platforms may be added based on user requests.
 
-3. **Make**
-   - Required for running development scripts
-   - Usually pre-installed on Linux/Mac
+## Installation
 
-4. **Git**
-   - Required for version control
-   - [Install Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-
-## Initial Setup
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/harshavmb/nannyapi.git
-   cd nannyapi
-   ```
-
-2. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-3. Install dependencies:
-   ```bash
-   make deps
-   ```
-
-4. Set up development database:
-   ```bash
-   make setup-dev
-   ```
-
-## Configuration
-
-Required environment variables:
+### Option 1: Binary Install (Recommended)
 
 ```bash
-# MongoDB
-MONGODB_URI=mongodb://localhost:27017/nannyapi
-
-# Security
-NANNY_ENCRYPTION_KEY=your-32-byte-encryption-key
-JWT_SECRET=your-jwt-secret
-
-# GitHub OAuth
-GH_CLIENT_ID=your-github-client-id
-GH_CLIENT_SECRET=your-github-client-secret
-GH_REDIRECT_URL=http://localhost:8080/github/callback
-
-# AI Services
-DEEPSEEK_API_KEY=your-deepseek-api-key
+curl -sL https://raw.githubusercontent.com/nannyagent/nannyapi/main/install.sh | sudo bash
 ```
 
-## Development Workflow
+This installs the binary to `/usr/local/bin/nannyapi` and sets up a systemd service.
 
-1. **Before starting work:**
+### Option 2: Docker
+
+```bash
+docker run -d \
+  --name nannyapi \
+  -p 8090:8090 \
+  -v $(pwd)/pb_data:/pb_data \
+  -e TENSORZERO_GATEWAY_URL=http://tensorzero:3000 \
+  nannyagent/nannyapi:latest
+```
+
+### Option 3: Build from Source
+
+```bash
+git clone https://github.com/nannyagent/nannyapi.git
+cd nannyapi
+make build
+sudo mv nannyapi /usr/local/bin/
+```
+
+## Initial Configuration
+
+1. **Start the service:**
    ```bash
-   git pull
-   make deps
+   sudo systemctl start nannyapi
+   # OR run directly:
+   nannyapi serve --http="0.0.0.0:8090"
    ```
 
-2. **During development:**
-   - Format code: `make fmt`
-   - Run tests: `make test`
-   - Check coverage: `make coverage`
-   ##- Update API docs: `make docs` ## to be added
-
-3. **Running the application:**
+2. **Create an admin user:**
    ```bash
-   make run
+   nannyapi superuser upsert admin@example.com YourPassword123!
    ```
 
-## API Documentation
+3. **Access the admin UI:**
+   - Open http://localhost:8090/_/
+   - Login with your admin credentials
 
-- Production API docs: https://nannyai.dev/documentation
+## Register Your First Agent
 
-## Common Tasks
+### Step 1: Start Device Authorization
 
-### Adding a New API Endpoint
+From your agent machine:
 
-1. Add route in `internal/server/server.go`
-2. Create handler function
-4. Write tests
+```bash
+curl -X POST http://your-server:8090/api/agent \
+  -H "Content-Type: application/json" \
+  -d '{"action": "device_auth_start"}'
+```
 
-### Adding a New Service
+Response:
+```json
+{
+  "device_code": "abcd-1234",
+  "user_code": "WXYZ-5678",
+  "verification_uri": "http://your-server:8090/_/#/auth/device",
+  "expires_in": 600,
+  "interval": 5
+}
+```
 
-1. Create new package in `internal/`
-2. Implement interfaces
-3. Add to dependency injection in `main.go`
-4. Write tests
-5. Update documentation
+### Step 2: Authorize the Device
+
+1. Open the `verification_uri` in a browser
+2. Login as admin
+3. Enter the `user_code`
+4. Click "Authorize"
+
+### Step 3: Register the Agent
+
+```bash
+curl -X POST http://your-server:8090/api/agent \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "register",
+    "device_code": "abcd-1234",
+    "hostname": "server-01",
+    "os_type": "linux",
+    "platform_family": "debian",
+    "kernel_version": "5.15.0-91-generic"
+  }'
+```
+
+Response:
+```json
+{
+  "id": "abc123def456",
+  "token": "eyJhbGc...",
+  "refresh_token": "xyz789..."
+}
+```
+
+**Save the tokens!** The agent will use these for all future API calls.
+
+## Test the Installation
+
+### Ingest Metrics
+
+```bash
+curl -X POST http://your-server:8090/api/agent \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_AGENT_TOKEN" \
+  -d '{
+    "action": "ingest_metrics",
+    "metrics": {
+      "cpu_percent": 45.2,
+      "memory_used": 8589934592,
+      "memory_total": 17179869184,
+      "disk_used": 107374182400,
+      "disk_total": 536870912000,
+      "load_average": {"1m": 1.5, "5m": 1.2, "15m": 0.9},
+      "uptime_seconds": 86400
+    }
+  }'
+```
+
+### View Agent in Admin UI
+
+1. Go to http://localhost:8090/_/
+2. Click "Collections" → "agents"
+3. You should see your registered agent with live metrics
+
+## Next Steps
+
+- **[Architecture Guide](ARCHITECTURE.md)**: Understand the system design
+- **[API Reference](API_REFERENCE.md)**: Full API documentation
+- **[Deployment Guide](DEPLOYMENT.md)**: Production setup, monitoring, security
+- **[Patch Management](PATCHING.md)**: Automated patching workflow
+
+## Common Issues
+
+### Port 8090 Already in Use
+
+```bash
+# Check what's using the port
+sudo lsof -i :8090
+
+# Use a different port
+nannyapi serve --http="0.0.0.0:8091"
+```
+
+### Service Won't Start
+
+```bash
+# Check logs
+sudo journalctl -u nannyapi -n 50 --no-pager
+
+# Check binary permissions
+ls -la /usr/local/bin/nannyapi
+
+# Verify data directory
+sudo mkdir -p /opt/nannyapi/pb_data
+sudo chown nannyapi:nannyapi /opt/nannyapi
+```
+
+### Can't Access Admin UI
+
+1. Check firewall: `sudo ufw status`
+2. Verify service is running: `sudo systemctl status nannyapi`
+3. Test locally first: `curl http://localhost:8090/api/health`
+
+## Development Mode
+
+For local development:
+
+```bash
+git clone https://github.com/nannyagent/nannyapi.git
+cd nannyapi
+
+# Build and run
+make build
+./nannyapi serve --http="0.0.0.0:8090"
+
+# Run tests
+make test
+
+# Format code
+make fmt
+```
+
+### Adding a Custom Handler
+
+1. Create handler in `internal/<feature>/handlers.go`
+2. Register route in `internal/hooks/setup.go`
+3. Add types to `internal/types/<feature>_types.go`
+4. Write tests in `tests/<feature>_test.go`
 
 ### Database Changes
 
-1. Add models in appropriate package
-2. Update repository implementation
-3. Write migration if needed
-4. Update tests
-5. Document changes
+Migrations are in `pb_migrations/`:
+
+```go
+// Example: pb_migrations/1735300000_add_my_field.go
+package migrations
+
+import (
+    "github.com/pocketbase/dbx"
+    "github.com/pocketbase/pocketbase/daos"
+    m "github.com/pocketbase/pocketbase/migrations"
+)
+
+func init() {
+    m.Register(func(db dbx.Builder) error {
+        dao := daos.New(db)
+        collection, _ := dao.FindCollectionByNameOrId("agents")
+        
+        // Add field logic here
+        
+        return dao.SaveCollection(collection)
+    }, func(db dbx.Builder) error {
+        // Rollback logic
+        return nil
+    })
+}
+```
 
 ## Testing
 
@@ -121,56 +245,49 @@ make test
 
 Run specific tests:
 ```bash
-go test ./internal/diagnostic/...
+go test ./internal/agents/... -v
+go test ./tests/ -v -run TestAgentRegistration
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **MongoDB Connection Issues**
-   - Check MongoDB is running
-   - Verify connection string
-   - Check network connectivity
-
-2. **Authentication Errors**
-   - Verify environment variables
-   - Check token expiration
-   - Validate API key format
-
-3. **Build Errors**
-   - Run `go mod tidy`
-   - Clear Go cache
-   - Check Go version
 
 ## Best Practices
 
-1. **Code Quality**
-   - Follow Go style guide
-   - Use meaningful variable names
-   - Add comments for complex logic
-   - Keep functions small and focused
+1. **Authentication**: Always use bearer tokens for agent endpoints
+2. **Metrics**: Ingest every 30 seconds to keep dashboard fresh
+3. **Patches**: Always use `--dry-run` first to preview changes
+4. **Scripts**: Verify SHA-256 hash before execution
+5. **Tokens**: Store refresh tokens securely and rotate before 30-day expiry
 
-2. **Testing**
-   - Write unit tests for new code
-   - Include integration tests
-   - Maintain >80% coverage
+## External Services (Optional)
 
-3. **Documentation**
-   - Update API documentation
-   - Add code comments
-   - Update README if needed
+### TensorZero (AI Investigations)
 
-4. **Security**
-   - Never commit secrets
-   - Validate all inputs
-   - Follow security guidelines
-   - Use proper error handling
+```bash
+docker run -d \
+  --name tensorzero \
+  -p 3000:3000 \
+  -e OPENAI_API_KEY=your-key \
+  tensorzero/gateway:latest
+```
+
+Set `TENSORZERO_GATEWAY_URL=http://localhost:3000` in NannyAPI.
+
+### ClickHouse (Observability)
+
+```bash
+docker run -d \
+  --name clickhouse \
+  -p 9000:9000 \
+  -p 8123:8123 \
+  clickhouse/clickhouse-server:latest
+```
+
+Set `CLICKHOUSE_URL=http://localhost:8123` in NannyAPI.
 
 ## Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for production setup, monitoring, and security hardening.
 
 ## Contributing
 
-See [Contributors.md](../Contributors.md) for contribution guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+

@@ -9,10 +9,12 @@ NannyAPI is the central control plane for Nanny Agents. It handles agent registr
 
 We have reorganized our documentation to help you get started quickly.
 
+- **[Quick Start](docs/QUICKSTART.md)**: Get started in 5 minutes.
 - **[Installation Guide](docs/INSTALLATION.md)**: Instructions for installing the binary, setting up systemd services, and building from source.
-- **[Architecture](docs/ARCHITECTURE.md)**: Overview of the system components, AI integration (TensorZero), and observability (ClickHouse).
-- **[Patch Management](docs/PATCHING.md)**: Details on how the patching system works, including dry-runs and Proxmox support.
-- **[API Reference](docs/API_REFERENCE.md)**: Comprehensive guide to the API endpoints, payloads, and responses.
+- **[Deployment Guide](docs/DEPLOYMENT.md)**: Production deployment, configuration, monitoring, security hardening, and troubleshooting.
+- **[Architecture](docs/ARCHITECTURE.md)**: System components, authentication flows, database schema, AI integration (TensorZero), and observability (ClickHouse).
+- **[API Reference](docs/API_REFERENCE.md)**: Complete API documentation with all endpoints, request/response examples, and authentication.
+- **[Patch Management](docs/PATCHING.md)**: Automated patching workflow, script verification, exception handling, and dry-run mode.
 - **[Security Policy](docs/SECURITY.md)**: Reporting vulnerabilities and AI safety.
 - **[Contributing](docs/CONTRIBUTING.md)**: Development setup and guidelines.
 - **[Contributors](docs/CONTRIBUTORS.md)**: List of contributors.

@@ -1,4 +1,4 @@
-.PHONY: all build test coverage lint fmt clean
+.PHONY: all build test coverage lint fmt clean run deps deps-check sec-check reset-start
 
 # Build the application
 all: lint test build
@@ -31,10 +31,11 @@ fmt:
 clean:
 	rm -rf bin/
 	rm -f coverage.txt coverage.html
+	rm -rf pb_data/
 
-# Run the application
+# Run the application (simple run)
 run:
-	go run ./cmd/main.go
+	go run ./main.go serve --http="0.0.0.0:8090"
 
 # Install dependencies
 deps:
@@ -50,4 +51,26 @@ sec-check:
 	which gosec > /dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
 	gosec ./...
 
-.DEFAULT_GOAL := all
+# Reset database and start server (Development only)
+# WARNING: This deletes pb_data!
+reset-start: build
+	@echo "Cleaning pb_data..."
+	@rm -rf pb_data
+	@echo "Killing nannyapi processes if any..."
+	@pkill -f bin/nannyapi || true
+	@echo "Running migrations..."
+	@if [ -f .env ]; then \
+		export $$(cat .env | grep -v '^#' | xargs); \
+		./bin/nannyapi migrate --dir=./pb_data; \
+		echo "Creating default admin..."; \
+		./bin/nannyapi superuser upsert admin@nannyapi.local AdminPass-123 --dir=./pb_data; \
+		echo "Starting server..."; \
+		./bin/nannyapi serve --dir=./pb_data --http="0.0.0.0:8090"; \
+	else \
+		echo "No .env file found. Running without env vars..."; \
+		./bin/nannyapi migrate --dir=./pb_data; \
+		echo "Creating default admin..."; \
+		./bin/nannyapi superuser upsert admin@nannyapi.local AdminPass-123 --dir=./pb_data; \
+		echo "Starting server..."; \
+		./bin/nannyapi serve --dir=./pb_data --http="0.0.0.0:8090"; \
+	fi

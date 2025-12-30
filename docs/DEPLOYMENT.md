@@ -17,25 +17,23 @@ NannyAPI uses environment variables for configuration. You should create a `.env
 ### Required Variables
 
 ```bash
-# PocketBase Settings
-# (Optional) If you want to disable the admin UI
-# PB_DISABLE_ADMIN_UI=true
+# GitHub credentials
+GITHUB_CLIENT_ID="github-client-id"
+GITHUB_CLIENT_SECRET="github-client-secret"
 
-# Database Encryption (32-byte string)
-NANNY_ENCRYPTION_KEY=your-32-byte-encryption-key-here
+# Google credentials
+GOOGLE_CLIENT_ID="google-client-id"
+GOOGLE_CLIENT_SECRET="google-client-secret"
 
-# JWT Secret for Token Signing
-JWT_SECRET=your-strong-jwt-secret
+# TensorZero Core API Configuration
+TENSORZERO_API_URL="tensorzero-core-api-endpoint"
+TENSORZERO_API_KEY="tensorzero-core-api-key"
 
-# OAuth2 Credentials (if using OAuth)
-GH_CLIENT_ID=your-github-client-id
-GH_CLIENT_SECRET=your-github-client-secret
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# AI & Observability
-TENSORZERO_API_URL=http://tensorzero:3000
-CLICKHOUSE_DSN=clickhouse://user:password@clickhouse-host:9000/nanny_db
+# ClickHouse Configuration (TensorZero Data Storage & Observability)
+CLICKHOUSE_URL="clickhouse-endpoint"
+CLICKHOUSE_DATABASE="tensorzero"
+CLICKHOUSE_USER="clickhouseuser"
+CLICKHOUSE_PASSWORD="clickhousepwd"
 ```
 
 ## Systemd Deployment

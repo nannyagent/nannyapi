@@ -77,8 +77,8 @@ To ensure the safety and reliability of the AI agents:
 
 ```mermaid
 graph TD
-    User[Admin/User] -->|OAuth (Google/GitHub)| API[NannyAPI (PocketBase)]
-    Agent[Nanny Agent] -->|Auth Token| API
+    User["Admin/User"] -->|OAuth (Google/GitHub)| API["NannyAPI (PocketBase)"]
+    Agent["Nanny Agent"] -->|Auth Token| API
     
     subgraph "AI & Data Layer"
         API -->|Inference Requests| TZ[TensorZero]
@@ -96,84 +96,130 @@ graph TD
 
 ## Database Schema
 
-The following collections are defined in PocketBase.
+The following Entity Relationship Diagram (ERD) illustrates the relationships between the core collections in PocketBase.
 
-### `users`
+```mermaid
+erDiagram
+    users ||--o{ agents : owns
+    users ||--o{ investigations : initiates
+    users ||--o{ patch_operations : initiates
+    users ||--o{ package_exceptions : creates
+    users ||--o{ device_codes : authorizes
+
+    agents ||--o{ investigations : subject_of
+    agents ||--o{ patch_operations : target_of
+    agents ||--o{ package_exceptions : has
+    agents ||--|| device_codes : registered_via
+
+    scripts ||--o{ patch_operations : used_in
+
+    users {
+        string id PK
+        string email
+        string name
+        string avatar
+    }
+
+    device_codes {
+        string id PK
+        string device_code
+        string user_code
+        string user_id FK
+        bool authorized
+        bool consumed
+        date expires_at
+        string agent_id
+    }
+
+    agents {
+        string id PK
+        string user_id FK
+        string device_code_id FK
+        string hostname
+        string platform
+        string platform_family
+        string os_version
+        string kernel_version
+        string arch
+        string version
+        string status
+        date last_seen
+        string public_key
+        string ip_address
+    }
+
+    investigations {
+        string id PK
+        string user_id FK
+        string agent_id FK
+        string episode_id "TensorZero ID"
+        string user_prompt
+        string priority
+        string status
+        string resolution_plan
+        date initiated_at
+        date completed_at
+        json metadata
+    }
+
+    scripts {
+        string id PK
+        string name
+        string description
+        string platform_family
+        string os_version
+        file file
+        string sha256
+    }
+
+    patch_operations {
+        string id PK
+        string user_id FK
+        string agent_id FK
+        string mode "dry-run/apply"
+        string status
+        string script_id FK
+        string script_url
+        string output_path
+        string error_msg
+        json exclusions
+        date started_at
+        date completed_at
+    }
+
+    package_exceptions {
+        string id PK
+        string agent_id FK
+        string user_id FK
+        string package_name
+        string reason
+        date expires_at
+        bool is_active
+    }
+```
+
+### Collection Details
+
+#### `users`
 Standard PocketBase users collection.
-- `email`: User email.
-- `name`: User full name.
-- `avatar`: User avatar.
 
-### `device_codes`
-Used for the agent device authentication flow.
-- `device_code` (text): Unique code for the device.
-- `user_code` (text): Short code for user entry.
-- `user_id` (relation -> users): The user who authorized the device.
-- `authorized` (bool): Whether the code has been authorized.
-- `consumed` (bool): Whether the token has been exchanged.
-- `expires_at` (date): Expiration timestamp.
-- `agent_id` (text): ID of the agent (if registered).
+#### `device_codes`
+Used for the agent device authentication flow. Links a temporary code to a user and eventually to an agent.
 
-### `agents`
-Registered Nanny Agents.
-- `user_id` (relation -> users): Owner of the agent.
-- `device_code_id` (relation -> device_codes): Originating auth code.
-- `hostname` (text): System hostname.
-- `platform` (text): OS platform (linux, darwin, etc.).
-- `platform_family` (text): Distro family (debian, rhel, etc.).
-- `os_version` (text): OS version string.
-- `kernel_version` (text): Kernel version.
-- `arch` (text): CPU architecture.
-- `version` (text): Agent version.
-- `status` (select): active, inactive, revoked.
-- `last_seen` (date): Last heartbeat.
-- `public_key` (text): SSH public key.
-- `ip_address` (text): Remote IP.
+#### `agents`
+Registered Nanny Agents. Contains system metadata and status.
 
-### `investigations`
-Incident records and AI analysis.
-- `user_id` (relation -> users): Initiator.
-- `agent_id` (relation -> agents): Target agent.
-- `episode_id` (text): TensorZero episode ID.
-- `user_prompt` (text): Initial issue description.
-- `priority` (text): low, medium, high.
-- `status` (text): pending, in_progress, completed, failed.
-- `resolution_plan` (text): Final AI-generated remediation plan.
-- `initiated_at` (date): Start time.
-- `completed_at` (date): End time.
-- `metadata` (json): Additional context.
+#### `investigations`
+Incident records. Links an agent to a TensorZero `episode_id` for AI context.
 
-### `scripts`
-Versioned patch scripts.
-- `name` (text): Script name.
-- `description` (text): Description.
-- `platform_family` (text): Target family (debian, rhel).
-- `os_version` (text): Specific version target.
-- `file` (file): The script file itself.
-- `sha256` (text): Hash for integrity verification.
+#### `scripts`
+Versioned patch scripts. Stored with SHA256 hashes for integrity verification.
 
-### `patch_operations`
-Records of patch jobs.
-- `user_id` (relation -> users): Initiator.
-- `agent_id` (relation -> agents): Target agent.
-- `mode` (text): dry-run, apply.
-- `status` (text): pending, running, completed, failed.
-- `script_id` (relation -> scripts): The script used.
-- `script_url` (text): Direct URL to script.
-- `output_path` (text): Path to execution logs.
-- `error_msg` (text): Error details.
-- `exclusions` (json): List of packages excluded from this run.
-- `started_at` (date): Execution start.
-- `completed_at` (date): Execution end.
+#### `patch_operations`
+Records of patch jobs. Tracks the execution of a script on an agent, including mode (dry-run/apply) and output.
 
-### `package_exceptions`
-Persistent package exclusions for agents.
-- `agent_id` (relation -> agents): Target agent.
-- `user_id` (relation -> users): Creator.
-- `package_name` (text): Name of package to exclude.
-- `reason` (text): Reason for exclusion.
-- `expires_at` (date): Optional expiration.
-- `is_active` (bool): Toggle status.
+#### `package_exceptions`
+Persistent package exclusions for agents. Used to prevent specific packages from being updated during patch operations.
 
 ## Platform Support
 

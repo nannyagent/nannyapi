@@ -46,11 +46,11 @@ NannyAPI implements a secure device authorization flow similar to OAuth2 device 
 │  Agent  │                                    │  API     │
 └────┬────┘                                    └────┬─────┘
      │                                              │
-     │  1. POST /api/agent (device-auth-start)     │
-     │ ────────────────────────────────────────>   │
+     │  1. POST /api/agent (device-auth-start)      │
+     │ ────────────────────────────────────────>    │
      │                                              │
-     │  2. device_code, user_code, verification_uri│
-     │ <────────────────────────────────────────   │
+     │  2. device_code, user_code, verification_uri │
+     │ <────────────────────────────────────────    │
      │                                              │
      │         Display user_code to operator        │
      │                                              │
@@ -112,7 +112,7 @@ Investigations use **TensorZero** as an AI gateway to diagnose system issues thr
 
 ```flowchart
 ┌──────────────────────────────────────────────────────────────┐
-│                  INVESTIGATION WORKFLOW                       │
+│                  INVESTIGATION WORKFLOW                      │
 └──────────────────────────────────────────────────────────────┘
 
     User/Agent Initiates                  API Creates Record
@@ -125,7 +125,7 @@ Investigations use **TensorZero** as an AI gateway to diagnose system issues thr
                     ▼
                     
          ┌──────────────────────────────┐
-         │   DIAGNOSTIC LOOP (Iterative) │
+         │   DIAGNOSTIC LOOP (Iterative)│
          └──────────────────────────────┘
          
     ┌────────────────────────────────────────┐
@@ -211,7 +211,7 @@ Secure, controlled package updates with SHA-256 integrity verification.
 
 ```flowchart
 ┌──────────────────────────────────────────────────────────────┐
-│                  PATCH MANAGEMENT WORKFLOW                    │
+│                  PATCH MANAGEMENT WORKFLOW                   │
 └──────────────────────────────────────────────────────────────┘
 
     User Creates Patch                    API Process

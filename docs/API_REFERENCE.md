@@ -505,7 +505,7 @@ Get detailed investigation with resolution plan and inferences.
 **Authentication:** Required (User)
 
 **Request:**
-```flowchart
+```text
 GET /api/investigations?id=inv_789
 ```
 
@@ -651,7 +651,7 @@ Get detailed patch operation with results.
 **Authentication:** Required (User)
 
 **Request:**
-```flowchart
+```text
 GET /api/patches?id=patch_001
 ```
 
@@ -714,7 +714,7 @@ Agent uploads execution results after patch completion.
 **Authentication:** Required (Agent)
 
 **Request (multipart/form-data):**
-```flowchart
+```text
 POST /api/patches/{patch_id}/result
 Content-Type: multipart/form-data
 

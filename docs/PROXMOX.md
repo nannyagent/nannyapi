@@ -231,7 +231,7 @@ The Proxmox host itself runs Debian Linux. The agent patches it using the standa
      "agent_id": "proxmox-host-01",
      "mode": "dry-run"
    }
-```
+   ```
 
 2. **Review Output**: Check which packages will be updated
 
@@ -242,7 +242,7 @@ The Proxmox host itself runs Debian Linux. The agent patches it using the standa
      "agent_id": "proxmox-host-01",
      "mode": "apply"
    }
-```
+   ```
 
 **Proxmox-Specific Considerations**:
 - Uses `apt-get dist-upgrade` for kernel updates
@@ -279,7 +279,7 @@ POST /api/packages/exceptions
      "agent_id": "lxc-100-web-server",  # Represents the container
      "mode": "dry-run"
    }
-```
+   ```
 
 2. **NannyAPI Routes to Host**: API recognizes this is an LXC guest and sends the patch job to the **parent host agent**
 
@@ -298,7 +298,7 @@ POST /api/packages/exceptions
    pct push 100 /tmp/apt-update.sh /tmp/patch.sh
    pct exec 100 -- bash /tmp/patch.sh --dry-run --exclude nginx,mysql
    pct exec 100 -- rm /tmp/patch.sh
-```
+   ```
 
 5. **Output Captured**: stdout/stderr from inside the container is captured by the host agent
 
@@ -311,7 +311,7 @@ POST /api/packages/exceptions
      "stderr": "",
      "completed_at": "2025-12-30T10:15:00Z"
    }
-```
+   ```
 
 #### Container OS Detection
 

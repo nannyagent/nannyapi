@@ -26,7 +26,7 @@ NannyAPI's patch system provides:
 
 ## Complete Patch Workflow
 
-```
+```flowchart
 ┌──────────────────────────────────────────────────────────────┐
 │                 END-TO-END PATCH WORKFLOW                     │
 └──────────────────────────────────────────────────────────────┘
@@ -278,7 +278,7 @@ OPTIONS:
 ### Output Format
 
 **Human-Readable:**
-```
+```text
 === Debian/Ubuntu APT Update Script ===
 Dry Run: true
 Excluded Packages: kernel,nginx
@@ -369,7 +369,7 @@ If patch causes issues:
      "reason": "Causes service crash in production",
      "is_active": true
    }
-   ```
+```
 
 3. **Manual Rollback (if needed):**
    - SSH into agent machine
@@ -380,7 +380,7 @@ If patch causes issues:
 Currently requires external scheduler (cron, systemd timers).
 
 **Example Cron:**
-```bash
+```text
 # Daily dry-run at 2 AM
 0 2 * * * curl -X POST http://api:8090/api/patches \
   -H "Authorization: Bearer $TOKEN" \
@@ -398,7 +398,7 @@ Built-in scheduler with maintenance windows planned for v2.0.
 ## Best Practices
 
 ### 1. Always Dry-Run First
-```bash
+```text
 # Test what will be updated
 POST /api/patches {"mode": "dry-run"}
 
@@ -442,7 +442,7 @@ POST /api/patches {"mode": "apply"}
 - Database corruption
 
 **Solution:**
-```bash
+```text
 # Re-download script
 curl -H "Auth: Bearer $TOKEN" \
   http://api:8090/api/files/...
@@ -475,7 +475,7 @@ sha256sum script.sh
 - Configure passwordless sudo:
   ```bash
   nanny-agent ALL=(ALL) NOPASSWD: /usr/bin/apt-get, /usr/bin/dnf
-  ```
+```
 
 ### No Updates Available
 

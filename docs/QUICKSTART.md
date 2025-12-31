@@ -53,12 +53,12 @@ sudo mv nannyapi /usr/local/bin/
    sudo systemctl start nannyapi
    # OR run directly:
    nannyapi serve --http="0.0.0.0:8090"
-   ```
+```
 
 2. **Create an admin user:**
    ```bash
    nannyapi superuser upsert admin@example.com YourPassword123!
-   ```
+```
 
 3. **Access the admin UI:**
    - Open http://localhost:8090/_/

@@ -7,7 +7,7 @@
 Complete reference for all NannyAPI endpoints with actual request/response examples.
 
 ## Base URL
-```
+```text
 http://<your-server>:8090
 ```
 
@@ -15,13 +15,13 @@ http://<your-server>:8090
 
 ### User Authentication
 Bearer token obtained via OAuth2 or Email/Password login:
-```
+```text
 Authorization: Bearer <user_token>
 ```
 
 ### Agent Authentication
 Bearer token obtained via device authorization flow:
-```
+```text
 Authorization: Bearer <agent_token>
 ```
 
@@ -32,7 +32,7 @@ Authorization: Bearer <agent_token>
 All agent operations use a single endpoint with different `action` values.
 
 ### Base Endpoint
-```
+```text
 POST /api/agent
 ```
 
@@ -394,7 +394,7 @@ Get detailed health status and latest metrics for an agent.
 Investigation endpoints for AI-powered diagnostics.
 
 ### Base Endpoints
-```
+```text
 POST   /api/investigations  - Create investigation
 GET    /api/investigations  - List or get investigation(s)
 PATCH  /api/investigations  - Update investigation
@@ -464,7 +464,7 @@ Get all investigations for authenticated user.
 **Authentication:** Required (User)
 
 **Request:**
-```
+```text
 GET /api/investigations
 ```
 
@@ -505,7 +505,7 @@ Get detailed investigation with resolution plan and inferences.
 **Authentication:** Required (User)
 
 **Request:**
-```
+```flowchart
 GET /api/investigations?id=inv_789
 ```
 
@@ -554,7 +554,7 @@ GET /api/investigations?id=inv_789
 Patch operation endpoints for system updates.
 
 ### Base Endpoints
-```
+```text
 POST   /api/patches         - Create patch operation
 GET    /api/patches         - List or get patch operation(s)
 PATCH  /api/patches         - Update patch operation
@@ -622,7 +622,7 @@ Get all patch operations for authenticated user.
 **Authentication:** Required (User)
 
 **Request:**
-```
+```text
 GET /api/patches
 ```
 
@@ -651,7 +651,7 @@ Get detailed patch operation with results.
 **Authentication:** Required (User)
 
 **Request:**
-```
+```flowchart
 GET /api/patches?id=patch_001
 ```
 
@@ -678,7 +678,7 @@ Agent validates script integrity before execution.
 **Authentication:** Required (Agent)
 
 **Request:**
-```
+```text
 GET /api/scripts/{script_id}/validate
 ```
 
@@ -714,7 +714,7 @@ Agent uploads execution results after patch completion.
 **Authentication:** Required (Agent)
 
 **Request (multipart/form-data):**
-```
+```flowchart
 POST /api/patches/{patch_id}/result
 Content-Type: multipart/form-data
 
@@ -759,7 +759,7 @@ Manage persistent package exclusions.
 Package exceptions use standard PocketBase CRUD operations:
 
 **Base URL:**
-```
+```text
 /api/collections/package_exceptions/records
 ```
 
@@ -786,7 +786,7 @@ Authorization: Bearer <user_token>
 ### List Exceptions
 
 **Request:**
-```
+```flowchart
 GET /api/collections/package_exceptions/records?filter=agent_id='abc123xyz456'
 Authorization: Bearer <user_token>
 ```
@@ -812,7 +812,7 @@ NannyAPI leverages PocketBase's built-in REST API for collections not covered by
 ### Authentication
 
 **Login (Email/Password):**
-```
+```text
 POST /api/collections/users/auth-with-password
 
 {
@@ -822,7 +822,7 @@ POST /api/collections/users/auth-with-password
 ```
 
 **OAuth2 (GitHub/Google):**
-```
+```text
 GET /api/oauth2-redirect?provider=github
 ```
 
@@ -831,45 +831,45 @@ GET /api/oauth2-redirect?provider=github
 All collections support standard CRUD with access rules:
 
 **List:**
-```
+```text
 GET /api/collections/{collection}/records?page=1&perPage=20
 ```
 
 **Get:**
-```
+```text
 GET /api/collections/{collection}/records/{id}
 ```
 
 **Create:**
-```
+```text
 POST /api/collections/{collection}/records
 ```
 
 **Update:**
-```
+```text
 PATCH /api/collections/{collection}/records/{id}
 ```
 
 **Delete:**
-```
+```text
 DELETE /api/collections/{collection}/records/{id}
 ```
 
 ### Filtering & Sorting
 
 **Filter Syntax:**
-```
+```text
 ?filter=status='completed' && priority='high'
 ?filter=agent_id='abc123' && created>='2024-01-01'
 ```
 
 **Sorting:**
-```
+```text
 ?sort=-created,+priority
 ```
 
 **Expansion (Relations):**
-```
+```text
 ?expand=agent_id,user_id
 ```
 
@@ -954,13 +954,13 @@ PocketBase provides built-in rate limiting (configurable):
 Download files (scripts, patch outputs) via PocketBase file API:
 
 **Syntax:**
-```
+```text
 GET /api/files/{collection}/{record_id}/{filename}
 Authorization: Bearer <token>
 ```
 
 **Example:**
-```
+```text
 GET /api/files/pbc_1234567890/script_abc/apt-update.sh
 Authorization: Bearer <agent_token>
 ```
@@ -981,7 +981,7 @@ All list endpoints support pagination:
 - `perPage`: Items per page (default: 30, max: 500)
 
 **Response Headers:**
-```
+```text
 X-Pagination-Page: 1
 X-Pagination-Per-Page: 30
 X-Pagination-Total-Items: 150
@@ -1062,12 +1062,3 @@ curl -X POST http://localhost:8090/api/patches/patch_001/result \
   -F "stderr_file=@stderr.log" \
   -F "exit_code=0" \
   -F "status=completed"
-```
-
----
-
-## Related Documentation
-
-- [Architecture Guide](ARCHITECTURE.md): System design and components
-- [Installation Guide](INSTALLATION.md): Setup instructions
-- [Security Policy](SECURITY.md): Security best practices

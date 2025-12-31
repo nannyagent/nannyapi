@@ -41,7 +41,7 @@ Built on **PocketBase**, NannyAPI leverages:
 #### Agent Authentication (Device Authorization Flow)
 NannyAPI implements a secure device authorization flow similar to OAuth2 device flow:
 
-```
+```flowchart
 ┌─────────┐                                    ┌──────────┐
 │  Agent  │                                    │  API     │
 └────┬────┘                                    └────┬─────┘
@@ -110,7 +110,7 @@ Investigations use **TensorZero** as an AI gateway to diagnose system issues thr
 
 #### Investigation Lifecycle
 
-```
+```flowchart
 ┌──────────────────────────────────────────────────────────────┐
 │                  INVESTIGATION WORKFLOW                       │
 └──────────────────────────────────────────────────────────────┘
@@ -209,7 +209,7 @@ Secure, controlled package updates with SHA-256 integrity verification.
 
 #### Patch Operation Workflow
 
-```
+```flowchart
 ┌──────────────────────────────────────────────────────────────┐
 │                  PATCH MANAGEMENT WORKFLOW                    │
 └──────────────────────────────────────────────────────────────┘

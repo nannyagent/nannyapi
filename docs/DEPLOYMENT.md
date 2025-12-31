@@ -445,7 +445,7 @@ sudo apt install caddy
 ```
 
 **Caddyfile:**
-```
+```text
 api.example.com {
     reverse_proxy localhost:8090 {
         # Real-time subscriptions
@@ -460,12 +460,6 @@ api.example.com {
     request_body {
         max_size 100MB
     }
-}
-
-# Caddy Configuration (continued)
-
-```
-    
     # Auto-reload on configuration change
     auto_https off
 }
@@ -899,36 +893,3 @@ sudo cp /var/backups/nannyapi/data_TIMESTAMP.db /var/lib/nannyapi/pb_data/data.d
 
 # Start service
 sudo systemctl start nannyapi
-```
-
----
-
-## Production Checklist
-
-Before going to production, verify:
-
-- [ ] SSL/TLS certificate installed and valid
-- [ ] Reverse proxy configured with security headers
-- [ ] Firewall rules configured
-- [ ] Admin user created with strong password
-- [ ] OAuth2 providers configured (if using)
-- [ ] Environment variables set in .env
-- [ ] Systemd service enabled and running
-- [ ] Automated backups configured
-- [ ] Monitoring and alerts set up
-- [ ] Log rotation configured
-- [ ] Database optimized and indexed
-- [ ] TensorZero and ClickHouse configured (if using)
-- [ ] Test agent registration flow
-- [ ] Test patch operation workflow
-- [ ] Test investigation workflow
-- [ ] Documentation updated for team
-
----
-
-## Related Documentation
-
-- [Architecture Guide](ARCHITECTURE.md): System design and components
-- [API Reference](API_REFERENCE.md): Complete API documentation
-- [Patch Management](PATCHING.md): Patch workflow details
-- [Security Policy](SECURITY.md): Security best practices

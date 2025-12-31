@@ -35,18 +35,3 @@ To install the latest version on Linux:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/nannyagent/nannyapi/main/install.sh | sudo bash
-```
-
-For detailed installation and upgrade instructions, please refer to the [Installation Guide](docs/INSTALLATION.md).
-
-## Features
-
-- **Agent Management**: Secure registration and management of Nanny Agents.
-- **AI-Powered Investigations**: Integrates with TensorZero to analyze system issues and generate resolution plans.
-- **Patch Management**: Automated and manual patching for Linux systems (Debian, RHEL, Arch, SUSE) and Proxmox.
-- **Observability**: Built-in support for ClickHouse to store high-fidelity telemetry and AI episodes.
-- **Security**: OAuth2 authentication (Google/GitHub) and secure agent communication.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

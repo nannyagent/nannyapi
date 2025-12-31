@@ -14,7 +14,7 @@ We provide an `install.sh` script to automate the installation of the `nannyapi`
 2. Run the script as root:
    ```bash
    sudo ./install.sh
-   ```
+```
 
 The script performs the following actions:
 - Downloads the latest binary.
@@ -39,18 +39,18 @@ If you prefer to build the binary yourself, follow these steps.
    ```bash
    git clone https://github.com/nannyagent/nannyapi.git
    cd nannyapi
-   ```
+```
 
 2. Build the binary using `make`:
    ```bash
    make build
-   ```
+```
    This will create the binary at `bin/nannyapi`.
 
    Alternatively, using `go build`:
    ```bash
    go build -o bin/nannyapi ./main.go
-   ```
+```
 
 ### Packaging
 To package the binary for distribution, you can simply compress the `bin/nannyapi` file.
@@ -97,4 +97,3 @@ Check the service status and logs to ensure no errors are observed.
 sudo systemctl status nannyapi
 # Check logs
 sudo journalctl -u nannyapi -f
-```

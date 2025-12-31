@@ -28,7 +28,7 @@ NannyAPI's patch system provides:
 
 ```flowchart
 ┌──────────────────────────────────────────────────────────────┐
-│                 END-TO-END PATCH WORKFLOW                     │
+│                 END-TO-END PATCH WORKFLOW                    │
 └──────────────────────────────────────────────────────────────┘
 
 1. USER INITIATES PATCH
@@ -369,7 +369,7 @@ If patch causes issues:
      "reason": "Causes service crash in production",
      "is_active": true
    }
-```
+   ```
 
 3. **Manual Rollback (if needed):**
    - SSH into agent machine
@@ -475,7 +475,7 @@ sha256sum script.sh
 - Configure passwordless sudo:
   ```bash
   nanny-agent ALL=(ALL) NOPASSWD: /usr/bin/apt-get, /usr/bin/dnf
-```
+  ```
 
 ### No Updates Available
 

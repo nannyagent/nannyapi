@@ -265,7 +265,7 @@ All scripts follow a standardized interface:
 ./patch-script.sh [OPTIONS]
 
 OPTIONS:
-  --dry-run           List available updates without applying
+  --dry-run List available updates without applying
   --exclude PKG1,PKG2 Exclude specific packages (comma-separated)
 ```
 

@@ -2,11 +2,15 @@
 
 ## Reporting a Vulnerability
 
-We take the security of NannyAPI seriously. If you discover a security vulnerability, please do **NOT** open an issue publicly.
+We take security seriously. We appreciate your efforts to responsibly disclose your findings.
 
-Instead, please email us immediately at:
+### How to Report a Security Issue
 
-**support@nannyai.dev**
+**Please DO NOT report security vulnerabilities through public GitHub issues.**
+
+Instead, please report security vulnerabilities by emailing:
+
+📧 **support@nannyai.dev**
 
 We will acknowledge your report within 48 hours and provide an estimated timeframe for a fix.
 

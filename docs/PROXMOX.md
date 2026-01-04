@@ -72,12 +72,13 @@ graph TD
 ssh root@proxmox-node-01
 
 # Install the agent
-curl -sL https://github.com/nannyagent/nannyagent/releases/latest/download/install.sh | bash
+curl -sL https://raw.githubusercontent.com/nannyagent/nannyagent/main/install.sh | bash
 
 # Or download manually
-wget https://github.com/nannyagent/nannyagent/releases/latest/download/nannyagent-linux-amd64
+wget https://github.com/nannyagent/nannyagent/releases/latest/download/nannyagent_<version>_linux_amd64.tar.gz
+tar -xf nannyagent_<version>_linux_amd64.tar.gz
 chmod +x nannyagent-linux-amd64
-mv nannyagent-linux-amd64 /usr/local/bin/nannyagent
+mv nannyagent-linux-amd64 /usr/sbin/nannyagent
 ```
 
 ### Step 2: Configure Agent
@@ -121,7 +122,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/local/bin/nannyagent run --config /etc/nannyagent/config.yml
+ExecStart=/usr/sbin/nannyagent run --config /etc/nannyagent/config.yml
 Restart=on-failure
 RestartSec=10
 
@@ -618,10 +619,10 @@ systemctl restart nannyagent
 NannyAPI's Proxmox integration provides powerful agentless management for LXC containers while maintaining full observability and patch management for Proxmox hosts. This approach significantly reduces operational overhead for teams managing dozens or hundreds of lightweight containers.
 
 **Key Takeaways**:
-- ✅ One agent per Proxmox host manages all LXC containers
-- ✅ No need to install agents inside containers
-- ✅ Automatic guest discovery and OS detection
-- ✅ Secure patching with SHA-256 verification
-- ✅ Unified dashboard for entire Proxmox infrastructure
+- One agent per Proxmox host manages all LXC containers
+- No need to install agents inside containers
+- Automatic guest discovery and OS detection
+- Secure patching with SHA-256 verification
+- Unified dashboard for entire Proxmox infrastructure
 
 For additional support or questions, see [CONTRIBUTING.md](CONTRIBUTING.md) or open an issue on GitHub.

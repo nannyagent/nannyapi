@@ -88,7 +88,16 @@ func HandleIngestCluster(app core.App, e *core.RequestEvent) error {
 	}
 
 	// Upsert Cluster
-	record, err := app.FindFirstRecordByFilter("proxmox_cluster", "px_cluster_id = {:id}", dbx.Params{"id": req.ClusterID})
+	// We use cluster_name + user_id as the unique key because px_cluster_id is often just "cluster"
+	// and not unique across different Proxmox installations.
+	record, err := app.FindFirstRecordByFilter(
+		"proxmox_cluster",
+		"cluster_name = {:name} && user_id = {:user}",
+		dbx.Params{
+			"name": req.ClusterName,
+			"user": authRecord.GetString("user_id"),
+		},
+	)
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	}

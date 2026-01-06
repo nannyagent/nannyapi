@@ -28,7 +28,7 @@ graph TD
     HostAgent -->|pct exec| LXC2[LXC Container 2<br/>Debian 12]
     HostAgent -->|pct exec| LXC3[LXC Container 3<br/>Arch Linux]
     HostAgent -.->|Optional| VM1[QEMU VM<br/>Requires Agent]
-    
+
     subgraph "Proxmox Node"
         HostAgent
         PVE
@@ -37,13 +37,13 @@ graph TD
         LXC3
         VM1
     end
-    
+
     subgraph "Proxmox Cluster"
         Node1[Node 1<br/>Host Agent]
         Node2[Node 2<br/>Host Agent]
         Node3[Node 3<br/>Host Agent]
     end
-    
+
     API <-->|Manage Multiple Nodes| Node1
     API <-->|HA & Failover| Node2
     API <-->|Load Balancing| Node3
@@ -161,6 +161,8 @@ The agent running on a Proxmox node collects comprehensive metadata to build rel
 - Aggregate resource usage (sum of all guests)
 - Storage pool usage (local, Ceph, NFS, etc.)
 - High Availability (HA) status
+
+> **Note on Cluster Identification**: Proxmox clusters are identified in NannyAPI by their unique `cluster_name` per user. Ensure your clusters have distinct names if you are managing multiple distinct Proxmox clusters within the same NannyAPI tenant/user context. Generic IDs returned by Proxmox (like `cluster`) are ignored for identification purposes to prevent merging of unrelated clusters.
 
 ### Guest Discovery
 
@@ -294,7 +296,7 @@ POST /api/packages/exceptions
    ```bash
    # Agent executes on Proxmox host:
    pct exec 100 -- bash -c "$(cat /tmp/apt-update.sh)"
-   
+
    # Or for more complex scripts:
    pct push 100 /tmp/apt-update.sh /tmp/patch.sh
    pct exec 100 -- bash /tmp/patch.sh --dry-run --exclude nginx,mysql

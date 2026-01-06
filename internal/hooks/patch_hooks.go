@@ -118,6 +118,47 @@ func RegisterPatchHooks(app core.App) {
 		return e.Next()
 	})
 
+	// Hook to enforce unique patch schedule per agent/lxc
+	validateUniqueSchedule := func(e *core.RecordEvent) error {
+		agentID := e.Record.GetString("agent_id")
+		lxcID := e.Record.GetString("lxc_id")
+
+		// Uniqueness scope: agent_id + lxc_id
+		// If lxc_id is empty, it scopes to agent_id (host)
+		// We exclude the current record ID to allow updates
+		filter := ""
+		params := map[string]interface{}{
+			"agent": agentID,
+			"id":    e.Record.Id,
+		}
+
+		if lxcID == "" {
+			// Check for host schedule (lxc_id is empty or null)
+			filter = "agent_id = {:agent} && lxc_id = '' && id != {:id}"
+		} else {
+			// Check for specific LXC schedule
+			filter = "agent_id = {:agent} && lxc_id = {:lxc} && id != {:id}"
+			params["lxc"] = lxcID
+		}
+
+		// Check if any *other* record exists
+		records, err := app.FindRecordsByFilter("patch_schedules", filter, "", 1, 0, params)
+		if err != nil {
+			return err
+		}
+
+		if len(records) > 0 {
+			if lxcID != "" {
+				return fmt.Errorf("a patch schedule already exists for this LXC container (agent: %s, lxc: %s)", agentID, lxcID)
+			}
+			return fmt.Errorf("a patch schedule already exists for this agent (%s)", agentID)
+		}
+		return e.Next()
+	}
+
+	app.OnRecordCreate("patch_schedules").BindFunc(validateUniqueSchedule)
+	app.OnRecordUpdate("patch_schedules").BindFunc(validateUniqueSchedule)
+
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
 		// Helper to wrap handler with auth middleware
 		withAuth := func(handler func(*core.RequestEvent) error) func(*core.RequestEvent) error {

@@ -9,6 +9,7 @@ import (
 	"github.com/nannyagent/nannyapi/internal/hooks"
 	"github.com/nannyagent/nannyapi/internal/types"
 	_ "github.com/nannyagent/nannyapi/pb_migrations"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 )
@@ -374,5 +375,109 @@ func TestProxmoxDelete(t *testing.T) {
 	_, err := app.FindRecordById("proxmox_cluster", clusterRec.Id)
 	if err == nil {
 		t.Error("Cluster should have been deleted")
+	}
+}
+
+func TestProxmoxClusterScope(t *testing.T) {
+	app := setupProxmoxTestApp(t)
+	defer app.Cleanup()
+
+	// Helper to create user/agent pair
+	createPair := func(email string) string {
+		users, _ := app.FindCollectionByNameOrId("users")
+		u := core.NewRecord(users)
+		u.Set("email", email)
+		u.Set("password", "Pass123!456")
+		u.Set("passwordConfirm", "Pass123!456")
+		if err := app.Save(u); err != nil {
+			t.Fatalf("Failed to user %s: %v", email, err)
+		}
+
+		// Create dummy device code
+		dcColl, _ := app.FindCollectionByNameOrId("device_codes")
+		dcr := core.NewRecord(dcColl)
+		dcr.Set("device_code", "code-"+email)
+		dcr.Set("user_code", strings.Split(email, "@")[0]+"123") // simple unique
+		dcr.Set("expires_at", time.Now().Add(time.Hour))
+		if err := app.Save(dcr); err != nil {
+			t.Fatalf("Failed to save device code: %v", err)
+		}
+
+		agents, _ := app.FindCollectionByNameOrId("agents")
+		a := core.NewRecord(agents)
+		a.Set("name", "agent-"+email)
+		a.Set("user_id", u.Id)
+		a.Set("device_code_id", dcr.Id)
+		// Minimal fields
+		a.Set("hostname", "host-"+email)
+		a.Set("platform_family", "linux")
+		a.Set("version", "1.0")
+		a.SetPassword("AgentPass123!")
+
+		if err := app.Save(a); err != nil {
+			t.Fatalf("Failed to agent %s: %v", email, err)
+		}
+		tok, _ := a.NewAuthToken()
+		return tok
+	}
+
+	token1 := createPair("user1@test.com")
+	token2 := createPair("user2@test.com")
+
+	// 1. User 1 ingests "Prod"
+	req := types.ProxmoxCluster{
+		ClusterName: "Prod",
+		ClusterID:   "cluster", // Generic ID
+		Nodes:       1,
+		Quorate:     1,
+		Version:     1,
+	}
+	body, _ := json.Marshal(req)
+
+	(&tests.ApiScenario{
+		Name: "User 1 Ingest", Method: "POST", URL: "/api/proxmox/cluster",
+		Body: strings.NewReader(string(body)), Headers: map[string]string{"Authorization": token1, "Content-Type": "application/json"},
+		ExpectedStatus: 200, ExpectedContent: []string{"Cluster ingested successfully"}, DisableTestAppCleanup: true, TestAppFactory: func(test testing.TB) *tests.TestApp { return app },
+	}).Test(t)
+
+	// 2. User 2 ingests "Prod"
+	(&tests.ApiScenario{
+		Name: "User 2 Ingest", Method: "POST", URL: "/api/proxmox/cluster",
+		Body: strings.NewReader(string(body)), Headers: map[string]string{"Authorization": token2, "Content-Type": "application/json"},
+		ExpectedStatus: 200, ExpectedContent: []string{"Cluster ingested successfully"}, DisableTestAppCleanup: true, TestAppFactory: func(test testing.TB) *tests.TestApp { return app },
+	}).Test(t)
+
+	// 3. Verify we have 2 distinct clusters
+	total, err := app.CountRecords("proxmox_cluster", dbx.HashExp{"cluster_name": "Prod"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 {
+		t.Errorf("Expected 2 clusters named 'Prod' (different users), got %d", total)
+	}
+
+	// 4. User 1 ingests "Prod" again (should update existing)
+	req.Nodes = 2
+	body2, _ := json.Marshal(req)
+	(&tests.ApiScenario{
+		Name: "User 1 Update", Method: "POST", URL: "/api/proxmox/cluster",
+		Body: strings.NewReader(string(body2)), Headers: map[string]string{"Authorization": token1, "Content-Type": "application/json"},
+		ExpectedStatus: 200, ExpectedContent: []string{"Cluster ingested successfully"}, DisableTestAppCleanup: true, TestAppFactory: func(test testing.TB) *tests.TestApp { return app },
+	}).Test(t)
+
+	// Verify User 1's cluster updated
+	user1, _ := app.FindFirstRecordByFilter("users", "email='user1@test.com'")
+	rec, err := app.FindFirstRecordByFilter("proxmox_cluster", "cluster_name='Prod' && user_id={:uid}", dbx.Params{"uid": user1.Id})
+	if err != nil {
+		t.Fatal("User 1 cluster not found")
+	}
+	if rec.GetInt("nodes") != 2 {
+		t.Errorf("Expected nodes update to 2, got %d", rec.GetInt("nodes"))
+	}
+
+	// Verify total is still 2
+	totalAgain, _ := app.CountRecords("proxmox_cluster", dbx.HashExp{"cluster_name": "Prod"})
+	if totalAgain != 2 {
+		t.Errorf("Expected 2 clusters total after update, got %d", totalAgain)
 	}
 }

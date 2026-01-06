@@ -194,8 +194,8 @@ Set `expires_at` for automatic expiration:
 ## Supported Distributions
 
 ### Debian/Ubuntu Family
-**Package Manager:** apt  
-**Script:** `debian/apt-update.sh`  
+**Package Manager:** apt
+**Script:** `debian/apt-update.sh`
 **Supported Versions:** Debian 10+, Ubuntu 20.04+
 
 **Features:**
@@ -210,7 +210,7 @@ Set `expires_at` for automatic expiration:
 - Keywords: "ubuntu", "debian", "mint", "pop", "elementary"
 
 ### RHEL/CentOS/Fedora Family
-**Package Manager:** dnf/yum  
+**Package Manager:** dnf/yum
 **Scripts:**
 - `rhel/dnf-update.sh` (RHEL 8+, Fedora)
 - `rhel/yum-update.sh` (Legacy RHEL/CentOS 7)
@@ -227,8 +227,8 @@ Set `expires_at` for automatic expiration:
 - Keywords: "red hat", "rhel", "centos", "fedora", "alma", "rocky", "oracle"
 
 ### Arch Linux Family
-**Package Manager:** pacman  
-**Script:** `arch/pacman-update.sh`  
+**Package Manager:** pacman
+**Script:** `arch/pacman-update.sh`
 **Supported:** Arch Linux, Manjaro
 
 **Features:**
@@ -242,8 +242,8 @@ Set `expires_at` for automatic expiration:
 - Keywords: "arch", "manjaro", "endeavouros"
 
 ### SUSE/openSUSE Family
-**Package Manager:** zypper  
-**Script:** `suse/zypper-update.sh`  
+**Package Manager:** zypper
+**Script:** `suse/zypper-update.sh`
 **Supported:** SLES 15+, Leap 15+, Tumbleweed
 
 **Features:**
@@ -377,23 +377,28 @@ If patch causes issues:
 
 ### Scheduled Patching
 
-Currently requires external scheduler (cron, systemd timers).
+NannyAPI provides built-in cron-based scheduling for patch operations via the `patch_schedules` collection.
 
-**Example Cron:**
-```text
-# Daily dry-run at 2 AM
-0 2 * * * curl -X POST http://api:8090/api/patches \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"agent_id":"abc123","mode":"dry-run"}'
+**Schedule Features:**
+- Define schedules using standard cron expressions (e.g., `0 2 * * *`)
+- **Uniqueness Constraint**: Only **one** active schedule is allowed per Agent (host) or per LXC container.
+  - You cannot create multiple schedules for the same host.
+  - You cannot create multiple schedules for the same LXC container.
+  - To change the frequency, update the existing schedule instead of creating a new one.
 
-# Weekly apply on Sunday at 3 AM
-0 3 * * 0 curl -X POST http://api:8090/api/patches \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"agent_id":"abc123","mode":"apply"}'
+**Creating a Schedule:**
+```bash
+POST /api/collections/patch_schedules/records
+{
+  "agent_id": "abc123host",
+  "lxc_id": "lxc100",  // Optional: Omit for host schedule
+  "cron_expression": "0 3 * * 0",  // Weekly on Sunday at 3 AM
+  "is_active": true
+}
 ```
 
-**Future Enhancement:**
-Built-in scheduler with maintenance windows planned for v2.0.
+**Deprecated Manual Cron Method:**
+(Legacy) Formerly required external scheduler (cron, systemd timers).
 
 ## Best Practices
 

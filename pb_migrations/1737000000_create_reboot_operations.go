@@ -55,6 +55,12 @@ func init() {
 			MaxSelect:     1,
 		})
 
+		// VMID of the LXC container (copied from proxmox_lxc for convenience)
+		rebootOps.Fields.Add(&core.TextField{
+			Name:     "vmid",
+			Required: false,
+		})
+
 		// Status: pending, sent, rebooting, completed, failed, timeout
 		rebootOps.Fields.Add(&core.SelectField{
 			Name:     "status",

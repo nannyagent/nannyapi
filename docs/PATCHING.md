@@ -425,9 +425,9 @@ NannyAPI provides a complete remote reboot system that allows users to reboot ag
 2. API CREATES REBOOT OPERATION
    ├─> Verify user owns agent
    ├─> Check no pending reboot exists
-   ├─> Create reboot_operations record (status: pending)
+   ├─> Create reboot_operations record (status: sent)
    ├─> Set agent.pending_reboot_id
-   └─> Status changes to "sent"
+   └─> Realtime event broadcast to agent
 
 3. AGENT RECEIVES VIA REALTIME
    └─> Agent subscribes to reboot_operations collection
@@ -455,12 +455,13 @@ NannyAPI provides a complete remote reboot system that allows users to reboot ag
 
 | Status | Description |
 |--------|-------------|
-| `pending` | Reboot operation created, waiting to send |
 | `sent` | Command sent via realtime, awaiting agent acknowledgment |
 | `rebooting` | Agent acknowledged, reboot in progress |
 | `completed` | Agent reconnected after reboot |
 | `failed` | Reboot failed (agent reported error) |
 | `timeout` | Agent did not reconnect within timeout period |
+
+> **Note**: The "pending" status exists in the database schema for potential future use, but currently operations are created directly with "sent" status.
 
 ### API Endpoints
 
@@ -589,7 +590,8 @@ The API automatically verifies successful reboots by:
 | `user_id` | relation | User who initiated |
 | `agent_id` | relation | Target agent |
 | `lxc_id` | relation | Optional LXC target |
-| `status` | select | pending/sent/rebooting/completed/failed/timeout |
+| `vmid` | text | LXC container VMID (copied from proxmox_lxc) |
+| `status` | select | sent/rebooting/completed/failed/timeout |
 | `reason` | text | User-provided reason |
 | `requested_at` | date | When reboot was requested |
 | `acknowledged_at` | date | When agent acknowledged |

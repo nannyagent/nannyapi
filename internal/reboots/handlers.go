@@ -38,7 +38,7 @@ func CreateReboot(app core.App, userID string, req types.RebootRequest) (*types.
 	}
 
 	// Validate LXC if provided
-	vmid := 0
+	var vmid string
 	if req.LxcID != "" {
 		lxcRecord, err := app.FindRecordById("proxmox_lxc", req.LxcID)
 		if err != nil {
@@ -50,7 +50,7 @@ func CreateReboot(app core.App, userID string, req types.RebootRequest) (*types.
 			return nil, fmt.Errorf("lxc container does not belong to the specified agent")
 		}
 
-		vmid = lxcRecord.GetInt("vmid")
+		vmid = lxcRecord.GetString("vmid")
 	}
 
 	// Set default timeout
@@ -71,7 +71,7 @@ func CreateReboot(app core.App, userID string, req types.RebootRequest) (*types.
 	record.Set("requested_at", now)
 	record.Set("timeout_seconds", timeout)
 
-	if vmid > 0 {
+	if vmid != "" {
 		record.Set("vmid", vmid)
 	}
 
@@ -119,7 +119,7 @@ func ListReboots(app core.App, userID, agentID, status string) (*types.RebootLis
 			ID:             r.Id,
 			AgentID:        r.GetString("agent_id"),
 			LxcID:          r.GetString("lxc_id"),
-			Vmid:           r.GetInt("vmid"),
+			Vmid:           r.GetString("vmid"),
 			Status:         types.RebootStatus(r.GetString("status")),
 			Reason:         r.GetString("reason"),
 			RequestedAt:    r.GetDateTime("requested_at").Time(),
@@ -186,7 +186,7 @@ func GetReboot(app core.App, userID, rebootID string) (*types.RebootResponse, er
 		UserID:         userID,
 		AgentID:        record.GetString("agent_id"),
 		LxcID:          record.GetString("lxc_id"),
-		Vmid:           record.GetInt("vmid"),
+		Vmid:           record.GetString("vmid"),
 		Status:         types.RebootStatus(record.GetString("status")),
 		Reason:         record.GetString("reason"),
 		TimeoutSeconds: record.GetInt("timeout_seconds"),

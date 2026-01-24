@@ -8,10 +8,10 @@ import (
 	"github.com/nannyagent/nannyapi/internal/reboots"
 	"github.com/nannyagent/nannyapi/internal/types"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/robfig/cron/v3"
 )
 
 // RegisterRebootHooks registers all reboot management endpoints and hooks
+// Note: Reboot schedule cron management is handled by schedules.RegisterRebootScheduler
 func RegisterRebootHooks(app core.App) {
 	// Hook to enforce unique reboot schedule per agent/lxc (same as patch schedules)
 	validateUniqueRebootSchedule := func(e *core.RecordEvent) error {
@@ -65,14 +65,7 @@ func RegisterRebootHooks(app core.App) {
 		// but that second save doesn't properly broadcast realtime events from cron context
 		e.Record.Set("status", "sent")
 
-		// Populate vmid if lxc_id is present
-		lxcID := e.Record.GetString("lxc_id")
-		if lxcID != "" {
-			lxcRecord, err := app.FindRecordById("proxmox_lxc", lxcID)
-			if err == nil {
-				e.Record.Set("vmid", lxcRecord.GetInt("vmid"))
-			}
-		}
+		// vmid is populated by the handler before save (from lxc_id lookup), similar to patches
 
 		return e.Next()
 	})
@@ -96,41 +89,8 @@ func RegisterRebootHooks(app core.App) {
 		return e.Next()
 	})
 
-	// Hook to manage reboot schedule cron jobs
-	manageRebootCron := func(e *core.RecordEvent) error {
-		if err := updateRebootNextRun(e.Record); err != nil {
-			return err
-		}
-
-		if e.Record.GetBool("is_active") {
-			registerRebootCronJob(app, e.Record)
-		} else {
-			app.Cron().Remove("reboot_" + e.Record.Id)
-		}
-
-		return e.Next()
-	}
-
-	app.OnRecordCreate("reboot_schedules").BindFunc(manageRebootCron)
-	app.OnRecordUpdate("reboot_schedules").BindFunc(manageRebootCron)
-
-	app.OnRecordDelete("reboot_schedules").BindFunc(func(e *core.RecordEvent) error {
-		app.Cron().Remove("reboot_" + e.Record.Id)
-		return e.Next()
-	})
-
-	// Load existing schedules and register API endpoints on startup
+	// Register API endpoints on startup
 	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
-		records, err := app.FindRecordsByFilter("reboot_schedules", "is_active = true", "", 0, 0, nil)
-		if err != nil {
-			app.Logger().Error("Failed to load reboot schedules", "error", err)
-			return e.Next()
-		}
-
-		for _, record := range records {
-			registerRebootCronJob(app, record)
-		}
-
 		// Register reboot API endpoints
 		withAuth := func(handler func(*core.RequestEvent) error) func(*core.RequestEvent) error {
 			return LoadAuthContext(app)(RequireAuth()(handler))
@@ -142,6 +102,9 @@ func RegisterRebootHooks(app core.App) {
 		// GET /api/reboot - List reboot operations
 		e.Router.GET("/api/reboot", withAuth(handleListReboots(app)))
 
+		// GET /api/reboot/{id} - Get single reboot operation
+		e.Router.GET("/api/reboot/{id}", withAuth(handleGetReboot(app)))
+
 		// POST /api/reboot/{id}/acknowledge - Agent acknowledges reboot
 		e.Router.POST("/api/reboot/{id}/acknowledge", withAuth(handleRebootAcknowledge(app)))
 
@@ -150,73 +113,6 @@ func RegisterRebootHooks(app core.App) {
 
 		return e.Next()
 	})
-}
-
-func registerRebootCronJob(app core.App, record *core.Record) {
-	cronExpr := record.GetString("cron_expression")
-	scheduleID := record.Id
-
-	err := app.Cron().Add("reboot_"+scheduleID, cronExpr, func() {
-		executeRebootSchedule(app, scheduleID)
-	})
-
-	if err != nil {
-		app.Logger().Error("Failed to register reboot cron job", "schedule_id", scheduleID, "error", err)
-	}
-}
-
-func updateRebootNextRun(record *core.Record) error {
-	cronExpr := record.GetString("cron_expression")
-	if cronExpr == "" {
-		return nil
-	}
-
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-	schedule, err := parser.Parse(cronExpr)
-	if err != nil {
-		return err
-	}
-
-	nextRun := schedule.Next(time.Now().UTC())
-	record.Set("next_run_at", nextRun)
-	return nil
-}
-
-// executeRebootSchedule creates a reboot operation from a schedule
-func executeRebootSchedule(app core.App, scheduleID string) {
-	schedule, err := app.FindRecordById("reboot_schedules", scheduleID)
-	if err != nil {
-		app.Logger().Error("Failed to fetch reboot schedule for execution", "schedule_id", scheduleID, "error", err)
-		app.Cron().Remove("reboot_" + scheduleID)
-		return
-	}
-
-	if !schedule.GetBool("is_active") {
-		app.Cron().Remove("reboot_" + scheduleID)
-		return
-	}
-
-	// Create reboot operation using the handlers package
-	_, err = reboots.CreateReboot(app, schedule.GetString("user_id"), types.RebootRequest{
-		AgentID:        schedule.GetString("agent_id"),
-		LxcID:          schedule.GetString("lxc_id"),
-		Reason:         schedule.GetString("reason"),
-		TimeoutSeconds: 300,
-	})
-	if err != nil {
-		app.Logger().Error("Failed to create reboot operation from schedule", "schedule_id", scheduleID, "error", err)
-		return
-	}
-
-	// Update schedule stats
-	schedule.Set("last_run_at", time.Now().UTC())
-	if err := updateRebootNextRun(schedule); err != nil {
-		app.Logger().Error("Failed to update reboot next_run_at", "schedule_id", scheduleID, "error", err)
-	}
-
-	if err := app.Save(schedule); err != nil {
-		app.Logger().Error("Failed to update reboot schedule stats", "schedule_id", scheduleID, "error", err)
-	}
 }
 
 // handleCreateReboot handles POST /api/reboot (user-initiated reboot)
@@ -266,17 +162,70 @@ func handleCreateReboot(app core.App) func(*core.RequestEvent) error {
 // handleListReboots handles GET /api/reboot
 func handleListReboots(app core.App) func(*core.RequestEvent) error {
 	return func(c *core.RequestEvent) error {
-		user := c.Get("authRecord").(*core.Record)
-		if user == nil {
+		authRecord := c.Get("authRecord").(*core.Record)
+		if authRecord == nil {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+		}
+
+		var userID string
+		if authRecord.Collection().Name == "users" {
+			userID = authRecord.Id
+		} else if authRecord.Collection().Name == "agents" {
+			userID = authRecord.GetString("user_id")
+			if userID == "" {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "agent has no owner"})
+			}
+		} else {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "invalid authentication type"})
 		}
 
 		agentID := c.Request.URL.Query().Get("agent_id")
 		status := c.Request.URL.Query().Get("status")
 
-		resp, err := reboots.ListReboots(app, user.Id, agentID, status)
+		resp, err := reboots.ListReboots(app, userID, agentID, status)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		return c.JSON(http.StatusOK, resp)
+	}
+}
+
+// handleGetReboot handles GET /api/reboot/{id}
+func handleGetReboot(app core.App) func(*core.RequestEvent) error {
+	return func(c *core.RequestEvent) error {
+		authRecord := c.Get("authRecord").(*core.Record)
+		if authRecord == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "authentication required"})
+		}
+
+		var userID string
+		if authRecord.Collection().Name == "users" {
+			userID = authRecord.Id
+		} else if authRecord.Collection().Name == "agents" {
+			userID = authRecord.GetString("user_id")
+			if userID == "" {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "agent has no owner"})
+			}
+		} else {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "invalid authentication type"})
+		}
+
+		rebootID := c.Request.PathValue("id")
+		if rebootID == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "reboot_id required"})
+		}
+
+		resp, err := reboots.GetReboot(app, userID, rebootID)
+		if err != nil {
+			errMsg := err.Error()
+			if errMsg == "reboot operation not found" {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": errMsg})
+			}
+			if errMsg == "unauthorized: reboot operation does not belong to user" {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": errMsg})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": errMsg})
 		}
 
 		return c.JSON(http.StatusOK, resp)

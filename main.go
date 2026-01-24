@@ -60,8 +60,9 @@ func main() {
 	// Register proxmox hooks
 	hooks.RegisterProxmoxHooks(app)
 
-	// Register scheduler
+	// Register schedulers for patch and reboot schedules
 	schedules.RegisterScheduler(app)
+	schedules.RegisterRebootScheduler(app)
 
 	if err := app.Start(); err != nil {
 		log.Fatal(err)

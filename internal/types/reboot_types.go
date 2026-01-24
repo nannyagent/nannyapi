@@ -28,7 +28,7 @@ type RebootResponse struct {
 	UserID         string       `json:"user_id"`
 	AgentID        string       `json:"agent_id"`
 	LxcID          string       `json:"lxc_id,omitempty"`
-	Vmid           int          `json:"vmid,omitempty"`
+	Vmid           string       `json:"vmid,omitempty"`
 	Status         RebootStatus `json:"status"`
 	Reason         string       `json:"reason,omitempty"`
 	TimeoutSeconds int          `json:"timeout_seconds"`
@@ -42,7 +42,7 @@ type RebootListItem struct {
 	ID             string       `json:"id"`
 	AgentID        string       `json:"agent_id"`
 	LxcID          string       `json:"lxc_id,omitempty"`
-	Vmid           int          `json:"vmid,omitempty"`
+	Vmid           string       `json:"vmid,omitempty"`
 	Status         RebootStatus `json:"status"`
 	Reason         string       `json:"reason,omitempty"`
 	RequestedAt    time.Time    `json:"requested_at"`

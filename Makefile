@@ -3,7 +3,7 @@
 # Build the application
 all: lint test build
 
-# Build the binary (development - uses CGO for SQLite)
+# Build the binary (development - CGO disabled, uses pure Go SQLite)
 build:
 	CGO_ENABLED=0 go build -o bin/nannyapi ./main.go
 

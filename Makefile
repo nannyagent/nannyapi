@@ -1,11 +1,24 @@
-.PHONY: all build test coverage lint fmt clean run deps deps-check sec-check reset-start
+.PHONY: all build build-static test coverage lint fmt clean run deps deps-check sec-check reset-start build-all
 
 # Build the application
 all: lint test build
 
-# Build the binary
+# Build the binary (development - uses CGO for SQLite)
 build:
-	go build -o bin/nannyapi ./main.go
+	CGO_ENABLED=0 go build -o bin/nannyapi ./main.go
+
+# Build static binary (production - no CGO, cross-platform compatible)
+build-static:
+	CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/nannyapi ./main.go
+
+# Build for all platforms (Linux only)
+build-all:
+	@echo "Building for Linux amd64..."
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.Version=$$(cat VERSION)" -o bin/nannyapi-linux-amd64 ./main.go
+	@echo "Building for Linux arm64..."
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w -X main.Version=$$(cat VERSION)" -o bin/nannyapi-linux-arm64 ./main.go
+	@echo "All builds complete!"
+	@ls -la bin/
 
 # Run all tests
 test:

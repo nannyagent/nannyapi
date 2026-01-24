@@ -54,7 +54,7 @@ NannyAPI implements a secure device authorization flow similar to OAuth2 device 
      │                                              │
      │         Display user_code to operator        │
      │                                              │
-     
+
      ┌──────────┐                                   │
      │  User    │                                   │
      └────┬─────┘                                   │
@@ -67,7 +67,7 @@ NannyAPI implements a secure device authorization flow similar to OAuth2 device 
           │     Authorization: Bearer <user_token>  │
           │ ─────────────────────────────────────>  │
           │                                         │
-          
+
      ┌────┴────┐                                    │
      │  Agent  │                                    │
      └────┬────┘                                    │
@@ -119,15 +119,15 @@ Investigations use **TensorZero** as an AI gateway to diagnose system issues thr
     ─────────────────────────────────────────────────────────>
     Issue: "High CPU usage"               Status: pending
                                           episode_id: null
-                                          
+
                     │
                     │  Agent Receives via Realtime
                     ▼
-                    
+
          ┌──────────────────────────────┐
          │   DIAGNOSTIC LOOP (Iterative)│
          └──────────────────────────────┘
-         
+
     ┌────────────────────────────────────────┐
     │  1. Agent Collects Context             │
     │     - System logs                      │
@@ -163,7 +163,7 @@ Investigations use **TensorZero** as an AI gateway to diagnose system issues thr
          │  Loop continues until confident
          │
          ▼  response_type: "resolution"
-         
+
     ┌────────────────────────────────────────┐
     │  5. Final Resolution Plan              │
     │     - Root cause identified            │
@@ -221,7 +221,7 @@ Secure, controlled package updates with SHA-256 integrity verification.
       "agent_id": "xxx",
       "mode": "dry-run"  // or "apply"
     }
-    
+
                       │
                       │  1. Verify agent ownership
                       │  2. Determine platform_family (debian, rhel, etc.)
@@ -229,7 +229,7 @@ Secure, controlled package updates with SHA-256 integrity verification.
                       │  4. Create patch_operation record
                       │  5. Populate script_id, script_url, exclusions
                       ▼
-                      
+
     ┌──────────────────────────────────────┐
     │  Patch Operation Created             │
     │  - Status: pending                   │
@@ -240,7 +240,7 @@ Secure, controlled package updates with SHA-256 integrity verification.
            │
            │  Agent receives via realtime subscription
            ▼
-           
+
     ┌──────────────────────────────────────┐
     │  Agent Validates Script              │
     │  GET /api/scripts/{id}/validate      │
@@ -309,25 +309,25 @@ Exceptions are automatically injected into patch operations during creation.
 graph TB
     User[Admin/User<br/>Web Browser] -->|OAuth2| API[NannyAPI<br/>PocketBase]
     Agent[Nanny Agent<br/>Linux Server] -->|Device Auth<br/>JWT Token| API
-    
+
     subgraph "NannyAPI Core"
         API --> PB[(SQLite<br/>PocketBase)]
         API --> RT[Real-time<br/>Subscriptions]
     end
-    
+
     subgraph "AI & Observability"
         API -->|Investigations| TZ[TensorZero<br/>AI Gateway]
         TZ -->|Inference Logs| CH[(ClickHouse)]
         TZ -->|LLM Calls| LLM[OpenAI/Anthropic<br/>etc.]
     end
-    
+
     subgraph "Security Collections"
         PB --> SEC1[password_change_history]
         PB --> SEC2[failed_auth_attempts]
         PB --> SEC3[account_lockout]
         PB --> SEC4[system_config]
     end
-    
+
     RT -.->|Subscribe| Agent
     Agent -->|Metrics<br/>Every 30s| API
     Agent -->|Executes| CMD[Commands/<br/>eBPF Scripts]
@@ -341,7 +341,10 @@ erDiagram
     users ||--o{ agents : owns
     users ||--o{ investigations : initiates
     users ||--o{ patch_operations : initiates
+    users ||--o{ reboot_operations : initiates
     users ||--o{ package_exceptions : creates
+    users ||--o{ patch_schedules : creates
+    users ||--o{ reboot_schedules : creates
     users ||--o{ device_codes : authorizes
     users ||--o{ password_change_history : has
     users ||--o{ failed_auth_attempts : has
@@ -350,10 +353,19 @@ erDiagram
     agents ||--o{ agent_metrics : reports
     agents ||--o{ investigations : subject_of
     agents ||--o{ patch_operations : target_of
+    agents ||--o{ reboot_operations : target_of
     agents ||--o{ package_exceptions : has
+    agents ||--o{ patch_schedules : has
+    agents ||--o{ reboot_schedules : has
     agents ||--|| device_codes : registered_via
+    agents ||--o| reboot_operations : pending_reboot
 
     scripts ||--o{ patch_operations : used_in
+
+    proxmox_lxc ||--o{ patch_operations : target_of
+    proxmox_lxc ||--o{ reboot_operations : target_of
+    proxmox_lxc ||--o{ patch_schedules : has
+    proxmox_lxc ||--o{ reboot_schedules : has
 
     users {
         string id PK
@@ -394,6 +406,7 @@ erDiagram
         json all_ips "array of IP addresses"
         string refresh_token_hash "SHA-256 hash"
         datetime refresh_token_expires "30 days"
+        string pending_reboot_id FK "active reboot operation"
         datetime last_seen
         datetime created
         datetime updated
@@ -477,6 +490,51 @@ erDiagram
         text reason
         bool is_active
         datetime expires_at "optional"
+        datetime created
+        datetime updated
+    }
+
+    patch_schedules {
+        string id PK
+        string user_id FK
+        string agent_id FK
+        string lxc_id FK "optional, for LXC"
+        string cron_expression "standard cron format"
+        string mode "dry-run/apply"
+        bool is_active
+        datetime next_run_at "auto-calculated"
+        datetime last_run_at
+        datetime created
+        datetime updated
+    }
+
+    reboot_operations {
+        string id PK
+        string user_id FK
+        string agent_id FK
+        string lxc_id FK "optional, for LXC"
+        int vmid "auto-populated from LXC"
+        string status "pending/sent/rebooting/completed/failed/timeout"
+        text reason "user-provided context"
+        int timeout_seconds "default 300"
+        datetime requested_at
+        datetime acknowledged_at
+        datetime completed_at
+        text error_message
+        datetime created
+        datetime updated
+    }
+
+    reboot_schedules {
+        string id PK
+        string user_id FK
+        string agent_id FK
+        string lxc_id FK "optional, for LXC"
+        string cron_expression "standard cron format"
+        text reason
+        bool is_active
+        datetime next_run_at "auto-calculated"
+        datetime last_run_at
         datetime created
         datetime updated
     }
@@ -574,8 +632,22 @@ PocketBase provides built-in access control rules. NannyAPI implements:
 - **All**: `user_id = @request.auth.id || agent_id = @request.auth.id`
 
 ### Patch Operations Collection
-- **All (except Delete)**: `user_id = @request.auth.id || agent_id = @request.auth.id`
+- **List/View/Update**: `user_id = @request.auth.id || agent_id = @request.auth.id`
+- **Create**: `user_id = @request.auth.id` (only users can create)
 - **Delete**: `user_id = @request.auth.id` (only users can delete)
+
+### Reboot Operations Collection
+- **List/View/Update**: `user_id = @request.auth.id || agent_id = @request.auth.id`
+- **Create**: `user_id = @request.auth.id` (only users can create - agents cannot reboot themselves)
+- **Delete**: `user_id = @request.auth.id` (only users can delete)
+
+### Patch Schedules Collection
+- **All**: `user_id = @request.auth.id` (only schedule owner)
+- **Uniqueness**: One active schedule per agent/LXC combination
+
+### Reboot Schedules Collection
+- **All**: `user_id = @request.auth.id` (only schedule owner)
+- **Uniqueness**: One active schedule per agent/LXC combination
 
 ### Scripts Collection
 - **List/View**: `@request.auth.id != ''` (any authenticated user/agent)

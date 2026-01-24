@@ -1,19 +1,41 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
+	"github.com/spf13/cobra"
 
 	"github.com/nannyagent/nannyapi/internal/hooks"
 	"github.com/nannyagent/nannyapi/internal/schedules"
 	_ "github.com/nannyagent/nannyapi/pb_migrations"
 )
 
+// Version is set at build time via -ldflags
+var Version = "dev"
+
 func main() {
+	// Check for --version flag before initializing PocketBase
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-v" {
+			fmt.Printf("nannyapi version %s\n", Version)
+			return
+		}
+	}
+
 	app := pocketbase.New()
+
+	// Add version command
+	app.RootCmd.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print the version number",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("nannyapi version %s\n", Version)
+		},
+	})
 
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
 		Automigrate: os.Getenv("PB_AUTOMIGRATE") == "true",
@@ -31,6 +53,9 @@ func main() {
 	hooks.RegisterInvestigationHooks(app)
 	hooks.RegisterPatchHooks(app)
 	hooks.RegisterPackageExceptionHooks(app)
+
+	// Register reboot hooks
+	hooks.RegisterRebootHooks(app)
 
 	// Register proxmox hooks
 	hooks.RegisterProxmoxHooks(app)

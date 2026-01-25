@@ -170,7 +170,7 @@ services:
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8090/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -216,6 +216,9 @@ docker compose up -d
 | `TENSORZERO_API_URL` | No | TensorZero gateway URL |
 | `TENSORZERO_API_KEY` | No | TensorZero API key |
 | `CLICKHOUSE_URL` | No | ClickHouse server URL |
+| `CLICKHOUSE_DATABASE` | No | ClickHouse database name |
+| `CLICKHOUSE_USER` | No | ClickHouse username |
+| `CLICKHOUSE_PASSWORD` | No | ClickHouse password |
 
 #### Available Tags
 
@@ -224,7 +227,6 @@ docker compose up -d
 | `latest` | Latest stable release |
 | `x.y.z` | Specific version (e.g., `1.2.3`) |
 | `sha-xxxxxx` | Specific git commit |
-```
 
 ---
 

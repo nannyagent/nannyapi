@@ -28,6 +28,8 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
             suffix: amd64
+          # ubuntu-24.04-arm is GitHub's native ARM64 runner
+          # See: https://github.blog/changelog/2025-01-16-linux-arm64-hosted-runners-now-available-for-free-in-public-repositories
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
             suffix: arm64

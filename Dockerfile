@@ -19,10 +19,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/nannyapi ./main.go
 # Final stage
 FROM alpine:latest
 
+# Version label from build args
+ARG VERSION=dev
+LABEL org.opencontainers.image.version="${VERSION}"
+
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+# Install runtime dependencies (wget required for healthcheck)
+RUN apk add --no-cache ca-certificates tzdata wget
 
 # Create non-root user for security
 RUN addgroup -S nannyapi && adduser -S nannyapi -G nannyapi

@@ -206,7 +206,7 @@ docker cp nannyapi:/app/pb_data ./pb_data.bkp.$(date +%Y%m%d)
 #### For Systemd/Binary:
 ```bash
 # Example backup command
-cp -r /var/lib/nannyapi/pb_data /var/lib/nannyapi/pb_data.bkp.$(date +%d%m%y)
+cp -r /var/lib/nannyapi/pb_data /var/lib/nannyapi/pb_data.bkp.$(date +%Y%m%d)
 ```
 
 ### 2. Run Migrations
@@ -224,7 +224,7 @@ docker compose up -d
 docker run --rm \
   -v $(pwd)/pb_data:/app/pb_data \
   docker.io/nannyagent/nannyapi:latest \
-  migrate up --dir=/app/pb_data
+  ./nannyapi migrate up
 ```
 
 #### For Systemd/Binary:

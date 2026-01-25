@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  nannyapi:
+    image: docker.io/nannyagent/nannyapi:latest
+    container_name: nannyapi
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      # CRITICAL: Mount pb_data to persist SQLite database and PocketBase data
+      # Without this mount, ALL DATA WILL BE LOST on container restart!
+      - ./pb_data:/app/pb_data
+      # Optional: Mount custom patch scripts
+      # - ./patch_scripts:/app/patch_scripts
+    environment:
+      # PocketBase auto-migration (runs migrations on startup)
+      - PB_AUTOMIGRATE=true
+      # OAuth2 Configuration (optional)
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      # Frontend URL for device authorization flow
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      # TensorZero AI Gateway (optional)
+      - TENSORZERO_API_URL=${TENSORZERO_API_URL:-}
+      - TENSORZERO_API_KEY=${TENSORZERO_API_KEY:-}
+      # ClickHouse Observability (optional)
+      - CLICKHOUSE_URL=${CLICKHOUSE_URL:-}
+      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE:-tensorzero}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+# Optional: Include ClickHouse for observability
+# Uncomment the section below if you need ClickHouse
+#
+#   clickhouse:
+#     image: clickhouse/clickhouse-server:latest
+#     container_name: clickhouse
+#     restart: unless-stopped
+#     ports:
+#       - "8123:8123"
+#       - "9000:9000"
+#     environment:
+#       CLICKHOUSE_DB: tensorzero
+#       CLICKHOUSE_USER: nannyapi
+#       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-changeme}
+#     volumes:
+#       - clickhouse_data:/var/lib/clickhouse
+#     healthcheck:
+#       test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+#       interval: 30s
+#       timeout: 10s
+#       retries: 3
+#
+# volumes:
+#   clickhouse_data:

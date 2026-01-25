@@ -8,6 +8,9 @@
   <a href="https://github.com/nannyagent/nannyapi/actions/workflows/ci.yml">
     <img src="https://github.com/nannyagent/nannyapi/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
+  <a href="https://hub.docker.com/r/nannyagent/nannyapi">
+    <img src="https://img.shields.io/docker/v/nannyagent/nannyapi?label=docker" alt="Docker">
+  </a>
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
   </a>
@@ -20,7 +23,7 @@ NannyAPI is the central control plane for Nanny Agents. It handles agent registr
 We have reorganized our documentation to help you get started quickly.
 
 - **[Quick Start](docs/QUICKSTART.md)**: Get started in 5 minutes.
-- **[Installation Guide](docs/INSTALLATION.md)**: Instructions for installing the binary, setting up systemd services, and building from source.
+- **[Installation Guide](docs/INSTALLATION.md)**: Instructions for Docker, binary installation, systemd services, and building from source.
 - **[Deployment Guide](docs/DEPLOYMENT.md)**: Production deployment, configuration, monitoring, security hardening, and troubleshooting.
 - **[Architecture](docs/ARCHITECTURE.md)**: System components, authentication flows, database schema, AI integration (TensorZero), and observability (ClickHouse).
 - **[API Reference](docs/API_REFERENCE.md)**: Complete API documentation with all endpoints, request/response examples, and authentication.
@@ -31,7 +34,23 @@ We have reorganized our documentation to help you get started quickly.
 
 ## Quick Start
 
-To install the latest version on Linux:
+### Docker (Recommended)
+
+```bash
+# Create data directory for persistence
+mkdir -p ./pb_data
+
+# Run NannyAPI
+docker run -d \
+  --name nannyapi \
+  -p 8090:8090 \
+  -v $(pwd)/pb_data:/app/pb_data \
+  docker.io/nannyagent/nannyapi:latest
+```
+
+> ⚠️ **Important**: NannyAPI uses SQLite. You must mount `/app/pb_data` to persist data. See [Installation Guide](docs/INSTALLATION.md) for details.
+
+### Binary Installation (Linux)
 
 ```bash
 curl -sL https://raw.githubusercontent.com/nannyagent/nannyapi/main/install.sh | sudo bash

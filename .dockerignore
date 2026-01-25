@@ -19,6 +19,8 @@ vendor/
 # Test files
 *_test.go
 **/*_test.go
+tests/
+test_data/
 
 # Documentation
 docs/
@@ -34,6 +36,9 @@ docs/
 Dockerfile
 docker-compose.yml
 .dockerignore
+
+# PocketBase data (should be mounted as volume)
+pb_data/
 
 # Temporary files
 *.log

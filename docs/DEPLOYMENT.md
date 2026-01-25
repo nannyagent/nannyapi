@@ -128,56 +128,102 @@ sudo cp nannyapi /usr/local/bin/
 
 ### Method 3: Docker
 
-> **⚠️ Note**: Docker deployment support is currently in development. The examples below are speculative and will be updated when Docker images are officially published. For production use, please use Method 1 (Binary) or Method 2 (Source) until Docker support is finalized.
+Docker images are published to Docker Hub at `docker.io/nannyagent/nannyapi`.
+
+#### Quick Start
 
 ```bash
-# Using docker run (Coming Soon)
+# Create data directory (CRITICAL for persistence)
+mkdir -p ./pb_data
+
+# Run NannyAPI
 docker run -d \
   --name nannyapi \
   -p 8090:8090 \
-  -v $(pwd)/pb_data:/pb_data \
-  -v $(pwd)/.env:/.env \
-  --env-file .env \
-  ghcr.io/nannyagent/nannyapi:latest \
-  serve --dir="/pb_data" --http="0.0.0.0:8090"
+  -v $(pwd)/pb_data:/app/pb_data \
+  -e PB_AUTOMIGRATE=true \
+  -e GITHUB_CLIENT_ID=your-client-id \
+  -e GITHUB_CLIENT_SECRET=your-client-secret \
+  docker.io/nannyagent/nannyapi:latest
 ```
 
-**Docker Compose (Coming Soon):**
+#### Docker Compose (Recommended)
+
+Create a `docker-compose.yml`:
+
 ```yaml
 version: '3.8'
 
 services:
   nannyapi:
-    image: ghcr.io/nannyagent/nannyapi:latest
+    image: docker.io/nannyagent/nannyapi:latest
     container_name: nannyapi
     restart: unless-stopped
     ports:
       - "8090:8090"
     volumes:
-      - ./pb_data:/pb_data
-      - ./.env:/.env
-    env_file:
-      - .env
-    command: serve --dir="/pb_data" --http="0.0.0.0:8090"
-    depends_on:
-      - clickhouse  # Optional: if using ClickHouse
-
-  clickhouse:
-    image: clickhouse/clickhouse-server:latest
-    container_name: clickhouse
-    restart: unless-stopped
-    ports:
-      - "8123:8123"
-      - "9000:9000"
+      # CRITICAL: Mount pb_data for SQLite persistence
+      - ./pb_data:/app/pb_data
     environment:
-      CLICKHOUSE_DB: tensorzero
-      CLICKHOUSE_USER: nannyapi
-      CLICKHOUSE_PASSWORD: clickhouse-password
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
+      - PB_AUTOMIGRATE=true
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8090/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
 
-volumes:
-  clickhouse_data:
+Start with:
+```bash
+docker compose up -d
+```
+
+#### ⚠️ Critical: Data Persistence with SQLite
+
+**NannyAPI uses SQLite (embedded in PocketBase) for all data storage. This has important implications:**
+
+1. **Volume Mount Required**: You MUST mount `/app/pb_data` to persist data:
+   ```bash
+   -v /path/on/host:/app/pb_data
+   ```
+   Without this, ALL DATA IS LOST when the container restarts.
+
+2. **Single Instance Only**: SQLite does not support concurrent writes. Run only ONE container instance at a time.
+
+3. **No Horizontal Scaling**: Do not use Docker Swarm replicas or Kubernetes HPA with multiple pods.
+
+4. **Backup Before Upgrades**: Always backup `pb_data` before pulling new images:
+   ```bash
+   docker compose stop
+   cp -r ./pb_data ./pb_data.backup.$(date +%Y%m%d)
+   docker compose pull
+   docker compose up -d
+   ```
+
+#### Docker Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `PB_AUTOMIGRATE` | No | Auto-run migrations on startup (default: `true`) |
+| `GITHUB_CLIENT_ID` | No | GitHub OAuth App Client ID |
+| `GITHUB_CLIENT_SECRET` | No | GitHub OAuth App Client Secret |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth Client ID |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth Client Secret |
+| `FRONTEND_URL` | No | Frontend URL for OAuth redirects |
+| `TENSORZERO_API_URL` | No | TensorZero gateway URL |
+| `TENSORZERO_API_KEY` | No | TensorZero API key |
+| `CLICKHOUSE_URL` | No | ClickHouse server URL |
+
+#### Available Tags
+
+| Tag | Description |
+|-----|-------------|
+| `latest` | Latest stable release |
+| `x.y.z` | Specific version (e.g., `1.2.3`) |
+| `sha-xxxxxx` | Specific git commit |
 ```
 
 ---

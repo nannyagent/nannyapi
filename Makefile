@@ -69,3 +69,45 @@ sec-check:
 reset-start: build
 	@echo "Running reset-and-start.sh script..."
 	@./scripts/reset-and-start.sh
+# Docker targets
+DOCKER_IMAGE := docker.io/nannyagent/nannyapi
+DOCKER_TAG := $(shell cat VERSION 2>/dev/null || echo "latest")
+
+# Build Docker image locally
+docker-build:
+	docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) -t $(DOCKER_IMAGE):latest .
+
+# Run Docker container locally
+docker-run: docker-build
+	@mkdir -p pb_data
+	docker run -d --name nannyapi \
+		-p 8090:8090 \
+		-v $(PWD)/pb_data:/app/pb_data \
+		-e PB_AUTOMIGRATE=true \
+		$(DOCKER_IMAGE):$(DOCKER_TAG)
+
+# Stop and remove Docker container
+docker-stop:
+	docker stop nannyapi || true
+	docker rm nannyapi || true
+
+# View Docker container logs
+docker-logs:
+	docker logs -f nannyapi
+
+# Push Docker image (requires docker login)
+docker-push: docker-build
+	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
+	docker push $(DOCKER_IMAGE):latest
+
+# Docker compose up
+compose-up:
+	docker compose up -d
+
+# Docker compose down
+compose-down:
+	docker compose down
+
+# Docker compose logs
+compose-logs:
+	docker compose logs -f

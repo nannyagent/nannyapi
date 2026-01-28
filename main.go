@@ -6,10 +6,12 @@ import (
 	"os"
 
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/spf13/cobra"
 
 	"github.com/nannyagent/nannyapi/internal/hooks"
+	"github.com/nannyagent/nannyapi/internal/mfa"
 	"github.com/nannyagent/nannyapi/internal/schedules"
 	_ "github.com/nannyagent/nannyapi/pb_migrations"
 )
@@ -45,6 +47,17 @@ func main() {
 	app.OnRecordCreate("users").BindFunc(hooks.OnUserCreate(app))
 	app.OnRecordUpdate("users").BindFunc(hooks.OnUserUpdate(app))
 	app.OnRecordAuthWithPasswordRequest("users").BindFunc(hooks.OnAuthWithPasswordRequest(app))
+
+	// Register MFA hooks
+	mfaHooks := hooks.NewMFAHooks(app)
+	app.OnRecordAuthRequest("users").BindFunc(mfaHooks.OnAuthSuccess)
+
+	// Register MFA routes
+	app.OnServe().BindFunc(func(e *core.ServeEvent) error {
+		mfaHandler := mfa.NewHandler(app)
+		mfaHandler.RegisterRoutes(e)
+		return e.Next()
+	})
 
 	// Register agent hooks
 	hooks.RegisterAgentHooks(app)

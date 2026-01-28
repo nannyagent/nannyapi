@@ -33,10 +33,11 @@ func getPagination(e *core.RequestEvent) (int, int) {
 // Helper for ID validation to prevent injection
 func isValidID(id string) bool {
 	for _, ch := range id {
-		if !((ch >= 'a' && ch <= 'z') ||
+		valid := (ch >= 'a' && ch <= 'z') ||
 			(ch >= 'A' && ch <= 'Z') ||
 			(ch >= '0' && ch <= '9') ||
-			ch == '-' || ch == '_') {
+			ch == '-' || ch == '_'
+		if !valid {
 			return false
 		}
 	}

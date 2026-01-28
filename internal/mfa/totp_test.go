@@ -26,15 +26,39 @@ func TestGenerateSecret(t *testing.T) {
 }
 
 func TestGenerateTOTPURI(t *testing.T) {
-	config := TOTPConfig{
-		Issuer:      "NannyAPI",
-		AccountName: "test@example.com",
-		Secret:      "JBSWY3DPEHPK3PXP",
+	tests := []struct {
+		name     string
+		config   TOTPConfig
+		expected string
+	}{
+		{
+			name: "Standard",
+			config: TOTPConfig{
+				Issuer:      "NannyAPI",
+				AccountName: "test@example.com",
+				Secret:      "JBSWY3DPEHPK3PXP",
+			},
+			expected: "otpauth://totp/NannyAPI:test%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=NannyAPI&algorithm=SHA1&digits=6&period=30",
+		},
+		{
+			name: "SpecialCharacters",
+			config: TOTPConfig{
+				Issuer:      "My Nanny App",
+				AccountName: "user+tag@example.com",
+				Secret:      "JBSWY3DPEHPK3PXP",
+			},
+			// url.QueryEscape encodes spaces as "+" and "@" as "%40", "+" as "%2B"
+			expected: "otpauth://totp/My+Nanny+App:user%2Btag%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=My+Nanny+App&algorithm=SHA1&digits=6&period=30",
+		},
 	}
-	uri := GenerateTOTPURI(config)
-	expected := "otpauth://totp/NannyAPI:test@example.com?secret=JBSWY3DPEHPK3PXP&issuer=NannyAPI&algorithm=SHA1&digits=6&period=30"
-	if uri != expected {
-		t.Errorf("Expected URI %s, got %s", expected, uri)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uri := GenerateTOTPURI(tt.config)
+			if uri != tt.expected {
+				t.Errorf("Expected URI %s, got %s", tt.expected, uri)
+			}
+		})
 	}
 }
 

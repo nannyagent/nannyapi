@@ -62,7 +62,7 @@ type MFAChallenge struct {
 type MFAUsedToken struct {
 	ID       string    `json:"id"`
 	FactorID string    `json:"factor_id"`
-	Token    string    `json:"-"` // The token that was used
+	Token    string    `json:"-"` // The hash of the token that was used
 	UsedAt   time.Time `json:"used_at"`
 }
 

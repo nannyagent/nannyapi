@@ -45,7 +45,7 @@ func (h *MFAHooks) OnAuthSuccess(e *core.RecordAuthRequestEvent) error {
 
 	factors, err := h.app.FindRecordsByFilter(
 		factorsCollection,
-		"user_id = {:userId} AND status = 'verified'",
+		"user_id = {:userId} && status = 'verified'",
 		"",
 		1,
 		0,
@@ -142,7 +142,7 @@ func (h *MFAHooks) CheckMFARequired(userID string) (bool, string, error) {
 
 	factors, err := h.app.FindRecordsByFilter(
 		factorsCollection,
-		"user_id = {:userId} AND status = 'verified'",
+		"user_id = {:userId} && status = 'verified'",
 		"",
 		1,
 		0,
@@ -237,7 +237,7 @@ func (h *MFAHooks) verifyBackupCode(userID, code string) (bool, error) {
 
 	codes, err := h.app.FindRecordsByFilter(
 		backupCodesCollection,
-		"user_id = {:userId} AND used = false",
+		"user_id = {:userId} && used = false",
 		"",
 		100,
 		0,
@@ -273,7 +273,7 @@ func (h *MFAHooks) isTokenUsed(factorID, token string) bool {
 
 	records, err := h.app.FindRecordsByFilter(
 		usedTokensCollection,
-		"factor_id = {:factorId} AND token_hash = {:tokenHash}",
+		"factor_id = {:factorId} && token_hash = {:tokenHash}",
 		"",
 		1,
 		0,

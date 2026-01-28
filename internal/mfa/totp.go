@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image/png"
+	"net/url"
 	"strings"
 	"time"
 
@@ -67,13 +68,16 @@ func GenerateSecret() (string, error) {
 
 // GenerateTOTPURI creates the otpauth:// URI for authenticator apps
 func GenerateTOTPURI(config TOTPConfig) string {
+	// URL-encode dynamic components to prevent malformed URIs
+	encodedIssuer := url.QueryEscape(config.Issuer)
+	encodedAccount := url.QueryEscape(config.AccountName)
 	// Format: otpauth://totp/ISSUER:ACCOUNT?secret=SECRET&issuer=ISSUER&algorithm=SHA1&digits=6&period=30
 	return fmt.Sprintf(
 		"otpauth://totp/%s:%s?secret=%s&issuer=%s&algorithm=SHA1&digits=%d&period=%d",
-		config.Issuer,
-		config.AccountName,
+		encodedIssuer,
+		encodedAccount,
 		config.Secret,
-		config.Issuer,
+		encodedIssuer,
 		TOTPDigits,
 		TOTPPeriod,
 	)

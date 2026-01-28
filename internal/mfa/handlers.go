@@ -108,7 +108,9 @@ func (h *Handler) Enroll(e *core.RequestEvent) error {
 		dbx.Params{"userId": authRecord.Id},
 	)
 	for _, f := range unverifiedFactors {
-		h.app.Delete(f)
+		if err := h.app.Delete(f); err != nil {
+			h.app.Logger().Warn("Failed to delete unverified factor", "id", f.Id, "error", err)
+		}
 	}
 
 	// Generate new TOTP secret
@@ -370,7 +372,9 @@ func (h *Handler) Verify(e *core.RequestEvent) error {
 	expiresAt := challengeRecord.GetDateTime("expires_at").Time()
 	if time.Now().After(expiresAt) {
 		challengeRecord.Set("status", "expired")
-		h.app.Save(challengeRecord)
+		if err := h.app.Save(challengeRecord); err != nil {
+			h.app.Logger().Warn("Failed to update challenge status", "id", challengeRecord.Id, "error", err)
+		}
 		return apis.NewBadRequestError("Challenge has expired", nil)
 	}
 
@@ -476,7 +480,10 @@ func (h *Handler) Unenroll(e *core.RequestEvent) error {
 	}
 
 	// Delete all backup codes for this user
-	h.deleteBackupCodes(authRecord.Id)
+	if err := h.deleteBackupCodes(authRecord.Id); err != nil {
+		h.app.Logger().Error("Failed to delete backup codes", "error", err)
+		// We continue even if this fails, as the main operation (unenroll) succeeded
+	}
 
 	// Update user's mfa_enabled flag
 	authRecord.Set("mfa_enabled", false)
@@ -509,7 +516,10 @@ func (h *Handler) GenerateBackupCodes(e *core.RequestEvent) error {
 	}
 
 	// Delete existing backup codes and store new ones
-	h.deleteBackupCodes(authRecord.Id)
+	if err := h.deleteBackupCodes(authRecord.Id); err != nil {
+		h.app.Logger().Error("Failed to delete old backup codes", "error", err)
+		return apis.NewApiError(500, "Failed to cleanup old backup codes", err)
+	}
 	if err := h.storeBackupCodes(authRecord.Id, codes); err != nil {
 		return apis.NewApiError(500, "Failed to store backup codes", err)
 	}
@@ -579,7 +589,10 @@ func (h *Handler) RegenerateBackupCodes(e *core.RequestEvent) error {
 	}
 
 	// Delete existing backup codes and store new ones
-	h.deleteBackupCodes(authRecord.Id)
+	if err := h.deleteBackupCodes(authRecord.Id); err != nil {
+		h.app.Logger().Error("Failed to delete old backup codes", "error", err)
+		return apis.NewApiError(500, "Failed to cleanup old backup codes", err)
+	}
 	if err := h.storeBackupCodes(authRecord.Id, codes); err != nil {
 		return apis.NewApiError(500, "Failed to store backup codes", err)
 	}
@@ -815,7 +828,9 @@ func (h *Handler) deleteBackupCodes(userID string) error {
 	}
 
 	for _, code := range codes {
-		h.app.Delete(code)
+		if err := h.app.Delete(code); err != nil {
+			h.app.Logger().Warn("Failed to delete backup code", "id", code.Id, "error", err)
+		}
 	}
 
 	return nil
@@ -888,7 +903,9 @@ func (h *Handler) markTokenUsed(factorID, token string) {
 	record.Set("token_hash", tokenHash)
 	record.Set("used_at", time.Now())
 
-	h.app.Save(record)
+	if err := h.app.Save(record); err != nil {
+		h.app.Logger().Warn("Failed to mark token as used", "error", err)
+	}
 
 	// Clean up old tokens (older than 5 minutes)
 	h.cleanupOldTokens(factorID)
@@ -915,6 +932,8 @@ func (h *Handler) cleanupOldTokens(factorID string) {
 	}
 
 	for _, token := range oldTokens {
-		h.app.Delete(token)
+		if err := h.app.Delete(token); err != nil {
+			h.app.Logger().Warn("Failed to delete used token", "id", token.Id, "error", err)
+		}
 	}
 }

@@ -138,12 +138,12 @@ func handleCreateReboot(app core.App) func(*core.RequestEvent) error {
 		if err != nil {
 			// Determine appropriate status code
 			errMsg := err.Error()
-			switch {
-			case errMsg == "agent not found":
+			switch errMsg {
+			case "agent not found":
 				return c.JSON(http.StatusNotFound, map[string]string{"error": errMsg})
-			case errMsg == "unauthorized: agent does not belong to user":
+			case "unauthorized: agent does not belong to user":
 				return c.JSON(http.StatusForbidden, map[string]string{"error": errMsg})
-			case errMsg == "agent already has a pending reboot":
+			case "agent already has a pending reboot":
 				return c.JSON(http.StatusConflict, map[string]string{"error": errMsg})
 			default:
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": errMsg})

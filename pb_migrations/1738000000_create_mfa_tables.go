@@ -289,7 +289,9 @@ func init() {
 		if err == nil {
 			if field := usersCollection.Fields.GetByName("mfa_enabled"); field != nil {
 				usersCollection.Fields.RemoveByName("mfa_enabled")
-				app.Save(usersCollection)
+				if err := app.Save(usersCollection); err != nil {
+					return err
+				}
 			}
 		}
 

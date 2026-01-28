@@ -55,7 +55,9 @@ func (h *MFAHooks) OnAuthSuccess(e *core.RecordAuthRequestEvent) error {
 	if err != nil || len(factors) == 0 {
 		// No verified factors, MFA flag might be stale - allow auth
 		e.Record.Set("mfa_enabled", false)
-		h.app.Save(e.Record)
+		if err := h.app.Save(e.Record); err != nil {
+			return apis.NewApiError(500, "Failed to update user record", err)
+		}
 		return e.Next()
 	}
 
@@ -171,7 +173,9 @@ func (h *MFAHooks) VerifyMFAForLogin(userID, factorID, challengeID, code string)
 	expiresAt := challengeRecord.GetDateTime("expires_at").Time()
 	if time.Now().After(expiresAt) {
 		challengeRecord.Set("status", "expired")
-		h.app.Save(challengeRecord)
+		if err := h.app.Save(challengeRecord); err != nil {
+			return fmt.Errorf("failed to update challenge status: %w", err)
+		}
 		return fmt.Errorf("challenge has expired")
 	}
 
@@ -292,5 +296,8 @@ func (h *MFAHooks) markTokenUsed(factorID, token string) {
 	record.Set("token_hash", tokenHash)
 	record.Set("used_at", time.Now())
 
-	h.app.Save(record)
+	if err := h.app.Save(record); err != nil {
+		// Just log the error as we can't do much about it and don't want to block the flow
+		h.app.Logger().Error("Failed to mark token as used", "error", err)
+	}
 }

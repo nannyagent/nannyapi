@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/nannyagent/nannyapi/internal/types"
@@ -23,16 +24,14 @@ type Client struct {
 }
 
 // NewClient creates a new ClickHouse client
-// FAILS if CLICKHOUSE_URL, CLICKHOUSE_PASSWORD, TENSORZERO_API_URL, or TENSORZERO_API_KEY are not set
+// Uses CLICKHOUSE_URL which should contain all connection details:
+// Format: https://user:password@host:port/database
+// Or: https://host:port?user=xxx&password=xxx&database=xxx
+// Legacy env vars (CLICKHOUSE_DATABASE, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD) are still supported for backwards compatibility
 func NewClient() *Client {
-	baseURL := os.Getenv("CLICKHOUSE_URL")
-	if baseURL == "" {
+	clickhouseURL := os.Getenv("CLICKHOUSE_URL")
+	if clickhouseURL == "" {
 		panic("CLICKHOUSE_URL environment variable is required")
-	}
-
-	password := os.Getenv("CLICKHOUSE_PASSWORD")
-	if password == "" {
-		panic("CLICKHOUSE_PASSWORD environment variable is required")
 	}
 
 	// Also verify TensorZero credentials are set (required for the system)
@@ -43,10 +42,59 @@ func NewClient() *Client {
 		panic("TENSORZERO_API_KEY environment variable is required")
 	}
 
+	// Parse the URL to extract components
+	parsedURL, err := url.Parse(clickhouseURL)
+	if err != nil {
+		panic(fmt.Sprintf("Invalid CLICKHOUSE_URL: %v", err))
+	}
+
+	// Extract user and password from URL userinfo or query params
+	var user, password, database string
+
+	// Check for userinfo in URL (https://user:pass@host)
+	if parsedURL.User != nil {
+		user = parsedURL.User.Username()
+		password, _ = parsedURL.User.Password()
+	}
+
+	// Extract database from path (https://host/database)
+	if parsedURL.Path != "" && parsedURL.Path != "/" {
+		database = strings.TrimPrefix(parsedURL.Path, "/")
+	}
+
+	// Check query params for additional settings (override userinfo if present)
+	queryParams := parsedURL.Query()
+	if qUser := queryParams.Get("user"); qUser != "" {
+		user = qUser
+	}
+	if qPassword := queryParams.Get("password"); qPassword != "" {
+		password = qPassword
+	}
+	if qDatabase := queryParams.Get("database"); qDatabase != "" {
+		database = qDatabase
+	}
+
+	// Fall back to legacy env vars if not in URL
+	if user == "" {
+		user = getEnv("CLICKHOUSE_USER", "default")
+	}
+	if password == "" {
+		password = os.Getenv("CLICKHOUSE_PASSWORD")
+		if password == "" {
+			panic("ClickHouse password is required. Set it in CLICKHOUSE_URL or CLICKHOUSE_PASSWORD")
+		}
+	}
+	if database == "" {
+		database = getEnv("CLICKHOUSE_DATABASE", "tensorzero")
+	}
+
+	// Build base URL without auth info for requests
+	baseURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+
 	return &Client{
 		baseURL:  baseURL,
-		database: getEnv("CLICKHOUSE_DATABASE", "tensorzero"),
-		user:     getEnv("CLICKHOUSE_USER", "default"),
+		database: database,
+		user:     user,
 		password: password,
 		client:   &http.Client{Timeout: 30 * time.Second},
 	}

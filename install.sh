@@ -11,8 +11,11 @@ BINARY_NAME="nannyapi"
 INSTALL_DIR="/usr/local/bin"
 SERVICE_FILE="/etc/systemd/system/${BINARY_NAME}.service"
 WORKING_DIR="/var/lib/nannyapi"
+GRYPE_DB_CACHE_DIR="/var/cache/grype/db"
 GITHUB_REPO="nannyagent/nannyapi"
 VERSION="${NANNYAPI_VERSION:-latest}"
+INSTALL_GRYPE="${INSTALL_GRYPE:-true}"
+GRYPE_VERSION="${GRYPE_VERSION:-latest}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -128,6 +131,60 @@ download_binary() {
     chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
 }
 
+# Install grype for vulnerability scanning
+install_grype() {
+    if [[ "${INSTALL_GRYPE}" != "true" ]]; then
+        log_info "Skipping grype installation (INSTALL_GRYPE=false)"
+        return
+    fi
+
+    if command -v grype &> /dev/null; then
+        local current_version
+        current_version=$(grype version -o json 2>/dev/null | grep -o '"version":"[^"]*"' | cut -d'"' -f4 || grype version 2>/dev/null | head -1)
+        log_info "Grype is already installed: ${current_version}"
+        if [[ "${GRYPE_VERSION}" == "latest" ]]; then
+            log_info "Checking for updates..."
+        else
+            return
+        fi
+    fi
+
+    log_info "Installing grype (vulnerability scanner)..."
+
+    local grype_install_script="https://raw.githubusercontent.com/anchore/grype/main/install.sh"
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+
+    if command -v curl &> /dev/null; then
+        curl -sSfL "${grype_install_script}" | sh -s -- -b "${INSTALL_DIR}" "${GRYPE_VERSION}"
+    elif command -v wget &> /dev/null; then
+        wget -qO- "${grype_install_script}" | sh -s -- -b "${INSTALL_DIR}" "${GRYPE_VERSION}"
+    else
+        log_warn "Neither curl nor wget found. Skipping grype installation."
+        return
+    fi
+
+    if command -v grype &> /dev/null; then
+        log_success "Grype installed successfully"
+        log_info "Grype version: $(grype version 2>/dev/null | head -1 || echo 'unknown')"
+
+        # Create grype DB cache directory
+        mkdir -p "${GRYPE_DB_CACHE_DIR}"
+        chmod 755 "${GRYPE_DB_CACHE_DIR}"
+        log_info "Created grype DB cache directory: ${GRYPE_DB_CACHE_DIR}"
+
+        # Download initial grype database
+        log_info "Downloading initial grype vulnerability database (this may take a moment)..."
+        if GRYPE_DB_CACHE_DIR="${GRYPE_DB_CACHE_DIR}" grype db update 2>/dev/null; then
+            log_success "Grype vulnerability database downloaded"
+        else
+            log_warn "Failed to download grype database. It will be downloaded on first scan."
+        fi
+    else
+        log_warn "Grype installation may have failed. Vulnerability scanning will not be available."
+    fi
+}
+
 # Verify installation
 verify_installation() {
     if [[ -x "${INSTALL_DIR}/${BINARY_NAME}" ]]; then
@@ -178,6 +235,19 @@ PB_AUTOMIGRATE=true
 
 # Optional: ClickHouse for TensorZero
 # CLICKHOUSE_URL=
+
+# Vulnerability Scanning (requires grype)
+# Set to true to enable SBOM vulnerability scanning
+ENABLE_VULN_SCAN=false
+
+# Custom grype binary path (default: auto-detect from PATH)
+# GRYPE_PATH=
+
+# Grype database cache directory
+GRYPE_DB_CACHE_DIR=/var/cache/grype/db
+
+# Cron expression for grype DB updates (default: daily at 3 AM)
+GRYPE_DB_CRON="0 3 * * *"
 ENVEOF
         log_info "Created default .env at ${WORKING_DIR}/.env"
     fi
@@ -196,7 +266,7 @@ User=root
 Group=root
 WorkingDirectory=${WORKING_DIR}
 EnvironmentFile=${WORKING_DIR}/.env
-ExecStart=${INSTALL_DIR}/${BINARY_NAME} serve --http="0.0.0.0:8090" --dir="${WORKING_DIR}/pb_data"
+ExecStart=${INSTALL_DIR}/${BINARY_NAME} serve --http="0.0.0.0:8090" --dir="${WORKING_DIR}/pb_data" \$( [ "\${ENABLE_VULN_SCAN}" = "true" ] && echo "--enable-vuln-scan --grype-db-cache-dir=\${GRYPE_DB_CACHE_DIR:-/var/cache/grype/db} --grype-db-cron=\${GRYPE_DB_CRON:-0 3 * * *}" )
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
@@ -245,6 +315,10 @@ print_instructions() {
     echo ""
     echo "  6. View logs:"
     echo "     ${YELLOW}sudo journalctl -u ${BINARY_NAME} -f${NC}"
+    echo ""
+    echo "  7. Enable vulnerability scanning (optional):"
+    echo "     Edit ${WORKING_DIR}/.env and set ENABLE_VULN_SCAN=true"
+    echo "     ${YELLOW}sudo systemctl restart ${BINARY_NAME}${NC}"
     echo ""
     echo "Documentation: https://github.com/${GITHUB_REPO}"
     echo "Admin UI (after start): http://localhost:8090/_/"
@@ -296,6 +370,7 @@ main() {
     get_latest_version
     get_download_url
     download_binary
+    install_grype
     verify_installation
     create_systemd_service
     print_instructions

@@ -26,4 +26,4 @@ echo "Creating default admin..."
 
 echo "Setup complete. Admin: admin@nannyapi.local / AdminPass-123"
 echo "Starting server..."
-./nannyapi serve --dir=./pb_data --http="0.0.0.0:8090"
+./nannyapi serve --dir=./pb_data --http="0.0.0.0:8090" --enable-vuln-scan
